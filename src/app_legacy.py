@@ -1199,7 +1199,7 @@ def salvar_planilha_multisheets(
     caminho_arquivo: str,
     cabecalho: list,
     linhas_totais: list,
-    gerenciador_dedicados=None,
+
 ) -> str:
     idx_status = (
         cabecalho.index("STATUS CONFERÊNCIA")
@@ -1213,7 +1213,7 @@ def salvar_planilha_multisheets(
     )
 
     linhas_ok, linhas_faltando = [], []
-    linhas_dedicados, linhas_nao_dedicados = [], []
+    
 
     for row in linhas_totais:
         row_list = list(row)
@@ -1234,11 +1234,8 @@ def salvar_planilha_multisheets(
             if (idx_tomador != -1 and idx_tomador < len(row_list))
             else ""
         )
-        if gerenciador_dedicados and gerenciador_dedicados.e_dedicado(tom_val):
-            linhas_dedicados.append(row_list)
-        else:
-            linhas_nao_dedicados.append(row_list)
-
+    
+          
     base_path, ext = os.path.splitext(caminho_arquivo)
 
     if HAS_OPENPYXL:
@@ -1376,14 +1373,7 @@ def salvar_planilha_multisheets(
             ws_faltando = wb.create_sheet(title="QUARENTENA")
             adicionar_e_formatar_aba(ws_faltando, linhas_faltando)
 
-            # 4. Aba CLIENTES_DEDICADOS
-            ws_dedicados = wb.create_sheet(title="CLIENTES_DEDICADOS")
-            adicionar_e_formatar_aba(ws_dedicados, linhas_dedicados)
-
-            # 5. Aba CLIENTES_NAO_DEDICADOS
-            ws_nao_dedicados = wb.create_sheet(title="CLIENTES_NAO_DEDICADOS")
-            adicionar_e_formatar_aba(ws_nao_dedicados, linhas_nao_dedicados)
-
+           
             wb.save(caminho_xlsx)
             return caminho_xlsx
         except Exception as e:  # noqa: BLE001
@@ -1391,8 +1381,6 @@ def salvar_planilha_multisheets(
 
     caminho_csv_ok = base_path + "_DOCUMENTOS_OK.csv"
     caminho_csv_quarentena = base_path + "_QUARENTENA.csv"
-    caminho_csv_dedicados = base_path + "_CLIENTES_DEDICADOS.csv"
-    caminho_csv_nao_dedicados = base_path + "_CLIENTES_NAO_DEDICADOS.csv"
 
     if linhas_ok:
         with open(caminho_csv_ok, mode="w", newline="", encoding="utf-8-sig") as f_out:
@@ -1410,24 +1398,7 @@ def salvar_planilha_multisheets(
             for r in linhas_faltando:
                 escritor.writerow(r)
 
-    if linhas_dedicados:
-        with open(
-            caminho_csv_dedicados, mode="w", newline="", encoding="utf-8-sig"
-        ) as f_out:
-            escritor = csv.writer(f_out, delimiter=";")
-            escritor.writerow(cabecalho)
-            for r in linhas_dedicados:
-                escritor.writerow(r)
-
-    if linhas_nao_dedicados:
-        with open(
-            caminho_csv_nao_dedicados, mode="w", newline="", encoding="utf-8-sig"
-        ) as f_out:
-            escritor = csv.writer(f_out, delimiter=";")
-            escritor.writerow(cabecalho)
-            for r in linhas_nao_dedicados:
-                escritor.writerow(r)
-
+   
     return f"{caminho_csv_ok} / {caminho_csv_quarentena}"
 
 
@@ -2609,13 +2580,12 @@ class JanelaConfiguracoes(ctk.CTkToplevel):
         self,
         parent,
         gerenciador_layouts: GerenciadorLayouts,
-        gerenciador_dedicados: GerenciadorClientesDedicados,
+       
         app_gui,
     ):
         super().__init__(parent)
         self.gerenciador_layouts = gerenciador_layouts
-        self.gerenciador_dedicados = gerenciador_dedicados
-        self.app_gui = app_gui
+               self.app_gui = app_gui
 
         self.title(
             "⚙️ Painel de Aprendizado de Layouts Lado a Lado (Guia DAR + Termo/Nota)"
@@ -2652,7 +2622,7 @@ class JanelaConfiguracoes(ctk.CTkToplevel):
         self.tab_layouts = self.tabview.add("🎓 Gestor Layouts (Aprendizado Duplo)")
 
         self._construir_aba_layouts()
-        self._construir_aba_dedicados()
+      
 
     def _construir_aba_layouts(self):
         top_frame = ctk.CTkFrame(self.tab_layouts, fg_color="#E2E8F0")
@@ -3504,7 +3474,7 @@ class ZendeskAppGUI:
         self.tickets_processados = {}
         self.ctes_consultados_cache = {}
         self.gerenciador_layouts = GerenciadorLayouts()
-        self.gerenciador_dedicados = GerenciadorClientesDedicados()
+       
 
         pasta_docs = os.path.join(os.path.expanduser("~"), "Documents")
         if not os.path.exists(pasta_docs):
@@ -3833,30 +3803,7 @@ class ZendeskAppGUI:
             fill="x", pady=6, padx=15
         )
 
-        frame_dedicados = ctk.CTkFrame(sidebar, fg_color="#E2E8F0", corner_radius=8)
-        frame_dedicados.pack(fill="x", padx=10, pady=5)
-
-        ctk.CTkLabel(
-            frame_dedicados,
-            text="Base Clientes Dedicados",
-            font=ctk.CTkFont(size=12, weight="bold"),
-            text_color=self.BTN_ALTA[0],
-        ).pack(anchor="center", pady=(6, 2))
-        self.lbl_qtd_dedicados = ctk.CTkLabel(
-            frame_dedicados,
-            text=f"Cadastrados: {len(self.gerenciador_dedicados.clientes)}",
-            font=("Segoe UI", 10, "bold"),
-            text_color="#0F172A",
-        )
-        self.lbl_qtd_dedicados.pack(anchor="w", padx=12, pady=1)
-        self.lbl_data_dedicados = ctk.CTkLabel(
-            frame_dedicados,
-            text=f"Atualizado: {self.gerenciador_dedicados.ultima_atualizacao}",
-            font=("Segoe UI", 8),
-            text_color="#475569",
-        )
-        self.lbl_data_dedicados.pack(anchor="w", padx=12, pady=(0, 6))
-
+    
         ctk.CTkFrame(sidebar, height=2, fg_color="#CBD5E1").pack(
             fill="x", pady=6, padx=15
         )
@@ -4234,40 +4181,7 @@ class ZendeskAppGUI:
         if hasattr(self, "janela") and self.janela:
             self.janela.after(0, _task_ui)
 
-    def _atualizar_labels_dedicados(self):
-        if hasattr(self, "lbl_qtd_dedicados") and self.lbl_qtd_dedicados:
-            self.lbl_qtd_dedicados.configure(
-                text=f"Cadastrados: {len(self.gerenciador_dedicados.clientes)}"
-            )
-        if hasattr(self, "lbl_data_dedicados") and self.lbl_data_dedicados:
-            self.lbl_data_dedicados.configure(
-                text=f"Atualizado: {self.gerenciador_dedicados.ultima_atualizacao}"
-            )
-
-    def _gerar_resumo_dedicados(self, linhas_totais: list, cabecalho: list):
-        idx_tom = (
-            cabecalho.index("TOMADOR")
-            if "TOMADOR" in cabecalho
-            else (cabecalho.index("TOMADORES") if "TOMADORES" in cabecalho else -1)
-        )
-        total = len(linhas_totais)
-        dedicados = 0
-        for row in linhas_totais:
-            tom = str(row[idx_tom]) if (idx_tom != -1 and idx_tom < len(row)) else ""
-            if self.gerenciador_dedicados.e_dedicado(tom):
-                dedicados += 1
-        nao_dedicados = total - dedicados
-        perc_d = (dedicados / total * 100) if total > 0 else 0.0
-        perc_nd = (nao_dedicados / total * 100) if total > 0 else 0.0
-
-        resumo_msg = (
-            f"[📊 RESUMO DEDICADOS] Total Processado: {total} | "
-            f"Dedicados: {dedicados} ({perc_d:.1f}%) | "
-            f"Não Dedicados: {nao_dedicados} ({perc_nd:.1f}%)"
-        )
-        self.log(resumo_msg)
-
-    def _ordenar_tabela(self, coluna, reverso):
+            def _ordenar_tabela(self, coluna, reverso):
         dados = [(self.tabela.set(k, coluna), k) for k in self.tabela.get_children("")]
         dados.sort(reverse=reverso)
         for index, (val, k) in enumerate(dados):
@@ -4690,7 +4604,7 @@ class ZendeskAppGUI:
                     self.janela_config = JanelaConfiguracoes(
                         self.janela,
                         self.gerenciador_layouts,
-                        self.gerenciador_dedicados,
+                       
                         self,
                     )
 
@@ -6333,9 +6247,7 @@ class ZendeskAppGUI:
 
         try:
             caminho_gerado = salvar_planilha_multisheets(
-                caminho_csv, cabecalho, linhas_csv, self.gerenciador_dedicados
-            )
-            self._gerar_resumo_dedicados(linhas_csv, cabecalho)
+               
             self.atualizar_tabela_gui()
             self.log(
                 f"[🏆] Relatório Gerado com {len(linhas_csv)} linha(s) em: {caminho_gerado}"
@@ -6397,10 +6309,7 @@ class ZendeskAppGUI:
 
         try:
             caminho_gerado = salvar_planilha_multisheets(
-                caminho_csv, cabecalho, linhas, self.gerenciador_dedicados
-            )
-            self._gerar_resumo_dedicados(linhas, cabecalho)
-            self.log(
+               
                 f"[Zendesk] Relatório de Tomadores atualizado e salvo: {caminho_gerado}"
             )
         except Exception as e:
@@ -6460,9 +6369,9 @@ class ZendeskAppGUI:
 
         if linhas_unificadas and cabecalho:
             caminho_gerado = salvar_planilha_multisheets(
-                caminho_saida, cabecalho, linhas_unificadas, self.gerenciador_dedicados
+                caminho_saida, cabecalho, linhas_unificadas, 
             )
-            self._gerar_resumo_dedicados(linhas_unificadas, cabecalho)
+           
             self.log(f"[🏆] Salvo: {caminho_gerado}")
             self.exibir_mensagem(
                 "info",
@@ -7485,9 +7394,9 @@ class ZendeskAppGUI:
 
         try:
             caminho_gerado = salvar_planilha_multisheets(
-                caminho_final, cabecalho, linhas, self.gerenciador_dedicados
+               
             )
-            self._gerar_resumo_dedicados(linhas, cabecalho)
+           
             self.log(f"[🏆] Relatório Final Salvo em: {caminho_gerado}")
             self.atualizar_progresso(100, 100)
         except Exception as e:

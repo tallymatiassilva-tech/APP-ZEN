@@ -63,10 +63,9 @@ class JanelaSobre(ctk.CTkToplevel):
 
 
 class JanelaConfiguracoes(ctk.CTkToplevel):
-    def __init__(self, parent, gerenciador_layouts, gerenciador_dedicados, app_gui):
+    def __init__(self, parent, gerenciador_layouts, app_gui):
         super().__init__(parent)
         self.gerenciador_layouts = gerenciador_layouts
-        self.gerenciador_dedicados = gerenciador_dedicados
         self.app_gui = app_gui
 
         self.title("⚙️ Painel de Configurações e Layouts")
@@ -87,10 +86,8 @@ class JanelaConfiguracoes(ctk.CTkToplevel):
         )
         self.tabview.pack(fill="both", expand=True, padx=15, pady=15)
         self.tab_layouts = self.tabview.add("🎓 Gestor Layouts (Aprendizado Duplo)")
-        self.tab_dedicados = self.tabview.add("👥 Clientes Dedicados")
-        self._construir_aba_layouts()
-        self._construir_aba_dedicados()
-
+                self._construir_aba_layouts()
+       
     def _construir_aba_layouts(self):
         top = ctk.CTkFrame(self.tab_layouts, fg_color="#E2E8F0")
         top.pack(fill="x", padx=10, pady=8)
@@ -199,54 +196,7 @@ class JanelaConfiguracoes(ctk.CTkToplevel):
         e.pack(fill="x", padx=10, pady=2)
         return e
 
-    def _construir_aba_dedicados(self):
-        c = ctk.CTkFrame(self.tab_dedicados, fg_color="#FFFFFF")
-        c.pack(fill="both", expand=True, padx=10, pady=10)
-
-        f_form = ctk.CTkFrame(c, fg_color="#F8FAFC")
-        f_form.pack(fill="x", padx=10, pady=5)
-        self.ent_ded_nome = ctk.CTkEntry(
-            f_form, placeholder_text="Cliente/Tomador", width=250
-        )
-        self.ent_ded_nome.pack(side="left", padx=4, pady=6)
-        self.ent_ded_doc = ctk.CTkEntry(f_form, placeholder_text="CNPJ/CPF", width=160)
-        self.ent_ded_doc.pack(side="left", padx=4, pady=6)
-        self.ent_ded_obs = ctk.CTkEntry(
-            f_form, placeholder_text="Observação", width=220
-        )
-        self.ent_ded_obs.pack(side="left", padx=4, pady=6)
-        ctk.CTkButton(
-            f_form,
-            text="Salvar",
-            width=90,
-            fg_color="#1976D2",
-            command=self.salvar_dedicado,
-        ).pack(side="left", padx=4)
-
-        tabela_frame = tk.Frame(c)
-        tabela_frame.pack(fill="both", expand=True, padx=10, pady=5)
-        self.tree_dedicados = ttk.Treeview(
-            tabela_frame, columns=("nome", "doc", "obs"), show="headings"
-        )
-        self.tree_dedicados.heading("nome", text="CLIENTE")
-        self.tree_dedicados.heading("doc", text="CNPJ / CPF")
-        self.tree_dedicados.heading("obs", text="OBSERVAÇÃO")
-        self.tree_dedicados.pack(side="left", fill="both", expand=True)
-
-        sc = ttk.Scrollbar(tabela_frame, command=self.tree_dedicados.yview)
-        sc.pack(side="right", fill="y")
-        self.tree_dedicados.configure(yscrollcommand=sc.set)
-
-        botoes = ctk.CTkFrame(c, fg_color="transparent")
-        botoes.pack(fill="x", padx=10, pady=5)
-        ctk.CTkButton(
-            botoes,
-            text="🗑️ Excluir Selecionado",
-            fg_color="#B71C1C",
-            command=self.excluir_dedicado,
-        ).pack(side="left")
-
-        self.atualizar_tabela_dedicados()
+   
 
     def carregar_pdf(self, n):
         arq = filedialog.askopenfilename(filetypes=[("PDF", "*.pdf")])
@@ -353,33 +303,6 @@ class JanelaConfiguracoes(ctk.CTkToplevel):
         self.ent_r_barras.delete(0, tk.END)
         self.ent_r_barras.insert(0, cfg.get("regex_cod_barras", ""))
         self.testar_regex()
-
-    def salvar_dedicado(self):
-        nome = self.ent_ded_nome.get().strip()
-        doc = self.ent_ded_doc.get().strip()
-        obs = self.ent_ded_obs.get().strip()
-        ok, msg = self.gerenciador_dedicados.adicionar_ou_atualizar(nome, doc, obs)
-        if not ok:
-            return messagebox.showwarning("Aviso", msg)
-        self.ent_ded_nome.delete(0, tk.END)
-        self.ent_ded_doc.delete(0, tk.END)
-        self.ent_ded_obs.delete(0, tk.END)
-        self.atualizar_tabela_dedicados()
-        self.app_gui.atualizar_labels_dedicados()
-
-    def excluir_dedicado(self):
-        sel = self.tree_dedicados.selection()
-        if not sel:
-            return
-        nome = self.tree_dedicados.item(sel[0], "values")[0]
-        self.gerenciador_dedicados.remover(nome)
-        self.atualizar_tabela_dedicados()
-        self.app_gui.atualizar_labels_dedicados()
-
-    def atualizar_tabela_dedicados(self):
-        for i in self.tree_dedicados.get_children():
-            self.tree_dedicados.delete(i)
-
 
 class JanelaUnificarTomador(ctk.CTkToplevel):
     def __init__(self, parent, app_gui):
