@@ -1,0 +1,86 @@
+{
+    "SEFAZ_ALAGOAS": {
+        "uf": "AL",
+        "palavras_chave": [
+            "ALAGOAS",
+            "SEFAZ"
+        ],
+        "regex_termo": "(?:TERMO\\s*DE\\s*AVERIGUAÇÃO|AVERIGUAÇÃO|N[º°o\\.]*)\\s*[-:]?\\s*(\\d{6,12})",
+        "regex_vencimento": "(?:Vencimento\\s+do\\s+DAR|Vencimento)[\\s\\n\\r]*[:|]?[\\s\\n\\r]*(\\d{2}/\\d{2}/\\d{4})",
+        "regex_valor": "(?:Valor\\s+Total\\s*\\(R\\$\\)|Valor\\s+Total)[\\s\\n\\r]*[:|]?[\\s\\n\\r]*(?:R\\$\\s*)?(\\d{1,3}(?:\\.\\d{3})*,\\d{2})",
+        "regex_cod_barras": "(\\b8\\d{10}[\\s\\.-]*\\d[\\s\\.-]*\\d{11}[\\s\\.-]*\\d[\\s\\.-]*\\d{11}[\\s\\.-]*\\d[\\s\\.-]*\\d{11}[\\s\\.-]*\\d\\b|\\b8\\d{43,47}\\b)",
+        "regex_cte": "(?:CTE|Conhecimento|Remessa)\\s*[:=-]?\\s*([\\d/]+)",
+        "regex_num_arquivo": "(?:DANFE|CT-E|NF-E|CTE|NFE|DOCUMENTO)\\s+(\\d+)",
+        "regex_chave_arquivo": "(?:Chave\\s*de\\s*Acesso)?\\s*(\\b\\d{44}\\b)"
+    },
+    "SEFAZ_AMAPA": {
+        "uf": "AP",
+        "palavras_chave": [
+            "AMAPÁ",
+            "AMAPA",
+            "GOVERNO DO ESTADO DO AMAPÁ"
+        ],
+        "regex_termo": "(?:18\\s*-\\s*N\\.?\\s*Controle|N\\.?\\s*Controle|Nº?\\s*CONTROLE)\\s*[\\n\\r:]*\\s*(\\d{6,15})",
+        "regex_vencimento": "(?:NAO\\s*RECEBER\\s*APOS|07\\s*-\\s*Data\\s+de\\s+Vencimento)[\\s\\n\\r:]*(\\d{2}/\\d{2}/\\d{4})",
+        "regex_valor": "(?:14\\s*-\\s*TOTAL\\s+A\\s+RECOLHER|10\\s*-\\s*Valor\\s+Principal)[\\s\\n\\r:]*(?:R\\$\\s*)?(\\d{1,3}(?:\\.\\d{3})*,\\d{2})",
+        "regex_cod_barras": "(\\b8\\d{10}[\\s\\.-]*\\d[\\s\\.-]*\\d{11}[\\s\\.-]*\\d[\\s\\.-]*\\d{11}[\\s\\.-]*\\d[\\s\\.-]*\\d{11}[\\s\\.-]*\\d\\b|\\b8\\d{43,47}\\b)",
+        "regex_cte": "(?:Remessa|CTE|Conhecimento|Minuta)\\s*[:=-]?\\s*([\\d/]+)",
+        "regex_num_arquivo": "(?:NF-e|DANFE|N[º°o\\.]*)\\s*[:=-]?\\s*(\\d{3}\\.\\d{3}\\.\\d{3}|\\d+)",
+        "regex_chave_arquivo": "(?:Chave\\s*de\\s*Acesso)?\\s*:?[\\s\\n\\r]*(\\b\\d{44}\\b)"
+    },
+    "SEFAZ_ACRE": {
+        "uf": "AC",
+        "palavras_chave": [
+            "GOVERNO DO ESTADO DO ACRE",
+            "NOTIFICAÇÃO DO ICMS"
+        ],
+        "regex_termo": "(?:Número|Nº|Nº\\s*Doc)[\\s\\n\\r:]*([\\d\\.]+)",
+        "regex_vencimento": "(?:Válido\\s+para\\s+pagamento\\s+até|Data\\s+de\\s+Vencimento)[\\s\\n\\r:]*(\\d{2}/\\d{2}/\\d{2,4})",
+        "regex_valor": "(?:Total\\s+do\\s+ICMS\\s+a\\s+recolher|Total)[\\s\\n\\r:]*(?:R\\$\\s*)?(\\d{1,3}(?:\\.\\d{3})*,\\d{2})",
+        "regex_cod_barras": "(\\b8\\d{10}[\\s\\.-]*\\d[\\s\\.-]*\\d{11}[\\s\\.-]*\\d[\\s\\.-]*\\d{11}[\\s\\.-]*\\d[\\s\\.-]*\\d{11}[\\s\\.-]*\\d\\b|\\b8\\d{43,47}\\b)",
+        "regex_cte": "(?:CTE|Conhecimento|Remessa)\\s*[:=-]?\\s*([\\d/]+)",
+        "regex_num_arquivo": "(?:Processo|Nº\\s*Doc)\\s*[:=-]?\\s*(\\d+)",
+        "regex_chave_arquivo": "(\\b\\d{44}\\b)"
+    },
+    "SEFAZ_MS": {
+        "uf": "MS",
+        "palavras_chave": [
+            "MATO GROSSO DO SUL",
+            "DAEMS"
+        ],
+        "regex_termo": "(?:TERMO\\s*DE\\s*(?:APREENSÃO|VERIFICAÇÃO\\s*FISCAL)\\s*N[º°o\\.]*|POSTO\\s*:?\\s*\\d+\\s+(?:TA|TVF)\\s*:?)\\s*(\\d{6,15})",
+        "regex_vencimento": "(?:NÃO\\s*RECEBER\\s*APÓS|02\\s*-\\s*VENCIMENTO)[\\s\\n\\r:]*(\\d{2}/\\d{2}/\\d{4})",
+        "regex_valor": "(?:10\\s*-\\s*TOTAL|TOTAL\\s*A\\s*RECOLHER|TOTAL)[\\s\\n\\r:]*(?:R\\$\\s*)?(\\d{1,3}(?:\\.\\d{3})*,\\d{2})",
+        "regex_cod_barras": "(\\b8\\d{10}[\\s\\.-]*\\d[\\s\\.-]*\\d{11}[\\s\\.-]*\\d[\\s\\.-]*\\d{11}[\\s\\.-]*\\d[\\s\\.-]*\\d{11}[\\s\\.-]*\\d\\b|\\b8\\d{43,47}\\b)",
+        "regex_cte": "(?:CTE|Conhecimento|Remessa)\\s*[:=-]?\\s*([\\d/]+)",
+        "regex_num_arquivo": "NOTAS\\s*FISCAIS\\s*[:|-]?[\\s\\n\\r]*(\\d{1,9})",
+        "regex_chave_arquivo": "(\\b\\d{44}\\b)",
+        "bbox_valor": [
+            0.7,
+            0.15,
+            0.99,
+            0.35
+        ],
+        "bbox_vencimento": [
+            0.5,
+            0.1,
+            0.99,
+            0.25
+        ]
+    },
+    "PADRAO_GERAL": {
+        "uf": "GERAL",
+        "palavras_chave": [
+            "DOCUMENTO",
+            "ARRECADAÇÃO"
+        ],
+        "regex_termo": "(?:TERMO|TDAR|T\\.DAR|CONTROLE)\\s*[:=-]?\\s*(\\d{6,12})",
+        "regex_vencimento": "(?:Vencimento\\s+do\\s+DAR|Vencimento)\\s*[:|]?\\s*(\\d{2}/\\d{2}/\\d{4})",
+        "regex_valor": "(?:Valor\\s+Total\\s*\\(R\\$\\)|Valor\\s+Total)\\s*[:|]?\\s*(?:R\\$\\s*)?(\\d{1,3}(?:\\.\\d{3})*,\\d{2})",
+        "regex_cod_barras": "(\\b8\\d{10}[\\s\\.-]*\\d[\\s\\.-]*\\d{11}[\\s\\.-]*\\d[\\s\\.-]*\\d{11}[\\s\\.-]*\\d[\\s\\.-]*\\d{11}[\\s\\.-]*\\d\\b|\\b8\\d{43,47}\\b|\\b\\d{5}[\\.-]?\\d{5}\\s*\\d{5}[\\.-]?\\d{6}\\s*\\d{5}[\\.-]?\\d{6}\\s*\\d\\s*\\d{14}\\b)",
+        "regex_cte": "(?:CTE|Conhecimento|Remessa)\\s*[:=-]?\\s*([\\d/]+)",
+        "regex_num_arquivo": "(?:DANFE|NF-E|NFE|DOCUMENTO)\\s*[:=-]?\\s*(\\d+)",
+        "regex_chave_arquivo": "(\\b\\d{44}\\b)"
+    },
+    "_historico": []
+}
