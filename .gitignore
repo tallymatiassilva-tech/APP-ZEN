@@ -65,3 +65,17 @@ logs/
 .DS_Store
 Thumbs.db
 desktop.ini
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# VS Code
+.vscode/
+
+# Dados e executáveis do projeto
+checkpoints/
+Tesseract-OCR/
+memoria_diaria_jadlog.json
+base_clientes_dedicados.json
