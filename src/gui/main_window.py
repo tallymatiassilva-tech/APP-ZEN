@@ -388,7 +388,6 @@ class ZendeskAppGUI:
                 self.janela_config = JanelaConfiguracoes(
                     self.janela,
                     self.gerenciador_layouts,
-                    self.gerenciador_dedicados,
                     self,
                 )
             return
@@ -417,9 +416,7 @@ class ZendeskAppGUI:
                 defaultextension=".xlsx", filetypes=[("Excel", "*.xlsx")]
             )
             if arq:
-                self.spreadsheet_service.exportar_multisheets(
-                    arq, self.app_state.dados_em_memoria, self.gerenciador_dedicados
-                )
+                self.spreadsheet_service.exportar_multisheets()
                 self.log(f"[✓] Relatório final salvo em: {arq}")
             return
 
@@ -509,9 +506,7 @@ class ZendeskAppGUI:
             tickets, self.zendesk_api, lambda at, tot: self.atualizar_progresso(at, tot)
         )
         self.app_state.dados_em_memoria = dados
-        self.spreadsheet_service.exportar_multisheets(
-            caminho_saida, dados, self.gerenciador_dedicados
-        )
+        self.spreadsheet_service.exportar_multisheets()
         self.app_state.salvar_memoria()
         self.janela.after(0, self.atualizar_tabela_gui)
         self.log(f"[✓] Extração concluída e salva em: {caminho_saida}")

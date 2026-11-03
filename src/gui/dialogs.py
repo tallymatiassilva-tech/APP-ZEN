@@ -4,12 +4,17 @@ import re
 import threading
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
+
 import customtkinter as ctk
 
 from src.gui.widgets import BotaoArredondado3D, definir_icone
-from src.services.pdf_service import extrair_texto_pdf, mesclar_pdfs
 from src.services.document_classifier import e_dar_documento, e_termo_documento
-from src.services.uf_rules import extrair_numero_termo_pdf, formatar_numero_arquivo, padronizar_data_ddmmyyyy
+from src.services.pdf_service import extrair_texto_pdf, mesclar_pdfs
+from src.services.uf_rules import (
+    extrair_numero_termo_pdf,
+    formatar_numero_arquivo,
+    padronizar_data_ddmmyyyy,
+)
 
 
 class JanelaSobre(ctk.CTkToplevel):
@@ -30,12 +35,31 @@ class JanelaSobre(ctk.CTkToplevel):
     def construir_interface(self):
         c = ctk.CTkFrame(self, fg_color="#F1F5F9", corner_radius=12)
         c.pack(fill="both", expand=True, padx=20, pady=20)
-        ctk.CTkLabel(c, text="Automação Total JadLog", font=("Segoe UI", 18, "bold"), text_color="#D31145").pack(pady=(15, 5))
+        ctk.CTkLabel(
+            c,
+            text="Automação Total JadLog",
+            font=("Segoe UI", 18, "bold"),
+            text_color="#D31145",
+        ).pack(pady=(15, 5))
         ctk.CTkFrame(c, height=2, fg_color="#CBD5E1").pack(fill="x", pady=5, padx=15)
-        ctk.CTkLabel(c, text="Desenvolvido por: TALITA MATIAS SILVA", font=("Segoe UI", 11, "bold")).pack(anchor="w", padx=20, pady=(10, 2))
-        ctk.CTkLabel(c, text="Versão: 1.3 - Arquitetura Modular", font=("Segoe UI", 10)).pack(anchor="w", padx=20, pady=2)
-        ctk.CTkLabel(c, text="Automação, conferência de guias (DAR/DARE), termos e conciliação de tomadores.", font=("Segoe UI", 10), wraplength=400, justify="left").pack(anchor="w", padx=20, pady=(10, 20))
-        ctk.CTkButton(c, text="Fechar", width=120, fg_color="#475569", command=self.destroy).pack(pady=10)
+        ctk.CTkLabel(
+            c,
+            text="Desenvolvido por: TALITA MATIAS SILVA",
+            font=("Segoe UI", 11, "bold"),
+        ).pack(anchor="w", padx=20, pady=(10, 2))
+        ctk.CTkLabel(
+            c, text="Versão: 1.3 - Arquitetura Modular", font=("Segoe UI", 10)
+        ).pack(anchor="w", padx=20, pady=2)
+        ctk.CTkLabel(
+            c,
+            text="Automação, conferência de guias (DAR/DARE), termos e conciliação de tomadores.",
+            font=("Segoe UI", 10),
+            wraplength=400,
+            justify="left",
+        ).pack(anchor="w", padx=20, pady=(10, 20))
+        ctk.CTkButton(
+            c, text="Fechar", width=120, fg_color="#475569", command=self.destroy
+        ).pack(pady=10)
 
 
 class JanelaConfiguracoes(ctk.CTkToplevel):
@@ -58,7 +82,9 @@ class JanelaConfiguracoes(ctk.CTkToplevel):
         self.after(100, lambda: (self.lift(), self.focus_force()))
 
     def construir_interface(self):
-        self.tabview = ctk.CTkTabview(self, fg_color="#F1F5F9", segmented_button_selected_color="#D31145")
+        self.tabview = ctk.CTkTabview(
+            self, fg_color="#F1F5F9", segmented_button_selected_color="#D31145"
+        )
         self.tabview.pack(fill="both", expand=True, padx=15, pady=15)
         self.tab_layouts = self.tabview.add("🎓 Gestor Layouts (Aprendizado Duplo)")
         self.tab_dedicados = self.tabview.add("👥 Clientes Dedicados")
@@ -69,14 +95,38 @@ class JanelaConfiguracoes(ctk.CTkToplevel):
         top = ctk.CTkFrame(self.tab_layouts, fg_color="#E2E8F0")
         top.pack(fill="x", padx=10, pady=8)
 
-        ctk.CTkLabel(top, text="Inspeção Dupla:", font=("Segoe UI", 11, "bold")).pack(side="left", padx=5)
-        ctk.CTkButton(top, text="📂 Carregar DAR", fg_color="#1976D2", height=28, command=lambda: self.carregar_pdf(1)).pack(side="left", padx=3)
-        ctk.CTkButton(top, text="📂 Carregar Termo/Nota", fg_color="#0284C7", height=28, command=lambda: self.carregar_pdf(2)).pack(side="left", padx=3)
-        ctk.CTkButton(top, text="✨ Sugerir Chaves", fg_color="#475569", height=28, command=self.sugerir_chaves).pack(side="left", padx=3)
+        ctk.CTkLabel(top, text="Inspeção Dupla:", font=("Segoe UI", 11, "bold")).pack(
+            side="left", padx=5
+        )
+        ctk.CTkButton(
+            top,
+            text="📂 Carregar DAR",
+            fg_color="#1976D2",
+            height=28,
+            command=lambda: self.carregar_pdf(1),
+        ).pack(side="left", padx=3)
+        ctk.CTkButton(
+            top,
+            text="📂 Carregar Termo/Nota",
+            fg_color="#0284C7",
+            height=28,
+            command=lambda: self.carregar_pdf(2),
+        ).pack(side="left", padx=3)
+        ctk.CTkButton(
+            top,
+            text="✨ Sugerir Chaves",
+            fg_color="#475569",
+            height=28,
+            command=self.sugerir_chaves,
+        ).pack(side="left", padx=3)
 
-        self.ent_busca_layout = ctk.CTkEntry(top, placeholder_text="Filtrar...", width=160, height=28)
+        self.ent_busca_layout = ctk.CTkEntry(
+            top, placeholder_text="Filtrar...", width=160, height=28
+        )
         self.ent_busca_layout.pack(side="right", padx=5)
-        self.ent_busca_layout.bind("<KeyRelease>", lambda e: self.atualizar_tabela_layouts())
+        self.ent_busca_layout.bind(
+            "<KeyRelease>", lambda e: self.atualizar_tabela_layouts()
+        )
 
         center = ctk.CTkFrame(self.tab_layouts, fg_color="transparent")
         center.pack(fill="both", expand=True, padx=5, pady=5)
@@ -95,16 +145,33 @@ class JanelaConfiguracoes(ctk.CTkToplevel):
 
         self.ent_nome = self._add_entry(mid, "Nome Layout:")
         self.ent_uf = self._add_entry(mid, "UF:", "AL")
-        self.ent_chaves = self._add_entry(mid, "Palavras-chave (separadas por vírgula):")
+        self.ent_chaves = self._add_entry(
+            mid, "Palavras-chave (separadas por vírgula):"
+        )
         self.ent_r_termo = self._add_entry(mid, "Regex Termo:", r"(\d{6,15})")
-        self.ent_r_venc = self._add_entry(mid, "Regex Vencimento:", r"(\d{2}/\d{2}/\d{4})")
-        self.ent_r_valor = self._add_entry(mid, "Regex Valor:", r"(\d{1,3}(?:\.\d{3})*,\d{2})")
+        self.ent_r_venc = self._add_entry(
+            mid, "Regex Vencimento:", r"(\d{2}/\d{2}/\d{4})"
+        )
+        self.ent_r_valor = self._add_entry(
+            mid, "Regex Valor:", r"(\d{1,3}(?:\.\d{3})*,\d{2})"
+        )
         self.ent_r_barras = self._add_entry(mid, "Regex Barras:", r"(\b8\d{43,47}\b)")
-        self.ent_r_cte = self._add_entry(mid, "Regex CTE:", r"(?:CTE|Remessa)\s*[:=-]?\s*([\d/]+)")
-        self.ent_r_nota = self._add_entry(mid, "Regex Número Arquivo:", r"(?:DANFE|NF-E)\s*[:=-]?\s*(\d+)")
+        self.ent_r_cte = self._add_entry(
+            mid, "Regex CTE:", r"(?:CTE|Remessa)\s*[:=-]?\s*([\d/]+)"
+        )
+        self.ent_r_nota = self._add_entry(
+            mid, "Regex Número Arquivo:", r"(?:DANFE|NF-E)\s*[:=-]?\s*(\d+)"
+        )
 
-        ctk.CTkButton(mid, text="🧪 Validar Cruzamento", fg_color="#1976D2", command=self.testar_regex).pack(fill="x", padx=10, pady=5)
-        ctk.CTkButton(mid, text="💾 Salvar Layout", fg_color="#D31145", command=self.salvar_layout).pack(fill="x", padx=10, pady=5)
+        ctk.CTkButton(
+            mid,
+            text="🧪 Validar Cruzamento",
+            fg_color="#1976D2",
+            command=self.testar_regex,
+        ).pack(fill="x", padx=10, pady=5)
+        ctk.CTkButton(
+            mid, text="💾 Salvar Layout", fg_color="#D31145", command=self.salvar_layout
+        ).pack(fill="x", padx=10, pady=5)
 
         # Lado Direito - Resultados e Lista de Layouts
         right = ctk.CTkFrame(center, fg_color="#FFFFFF", width=340)
@@ -112,7 +179,9 @@ class JanelaConfiguracoes(ctk.CTkToplevel):
         self.txt_res = ctk.CTkTextbox(right, font=("Consolas", 9), height=200)
         self.txt_res.pack(fill="x", padx=6, pady=4)
 
-        self.tree_layouts = ttk.Treeview(right, columns=("nome", "uf"), show="headings", height=8)
+        self.tree_layouts = ttk.Treeview(
+            right, columns=("nome", "uf"), show="headings", height=8
+        )
         self.tree_layouts.heading("nome", text="NOME")
         self.tree_layouts.heading("uf", text="UF")
         self.tree_layouts.pack(fill="both", expand=True, padx=6, pady=4)
@@ -121,7 +190,9 @@ class JanelaConfiguracoes(ctk.CTkToplevel):
         self.atualizar_tabela_layouts()
 
     def _add_entry(self, parent, label, default=""):
-        ctk.CTkLabel(parent, text=label, font=("Segoe UI", 9, "bold")).pack(anchor="w", padx=10, pady=(4, 0))
+        ctk.CTkLabel(parent, text=label, font=("Segoe UI", 9, "bold")).pack(
+            anchor="w", padx=10, pady=(4, 0)
+        )
         e = ctk.CTkEntry(parent, font=("Consolas", 9), height=26)
         if default:
             e.insert(0, default)
@@ -134,17 +205,29 @@ class JanelaConfiguracoes(ctk.CTkToplevel):
 
         f_form = ctk.CTkFrame(c, fg_color="#F8FAFC")
         f_form.pack(fill="x", padx=10, pady=5)
-        self.ent_ded_nome = ctk.CTkEntry(f_form, placeholder_text="Cliente/Tomador", width=250)
+        self.ent_ded_nome = ctk.CTkEntry(
+            f_form, placeholder_text="Cliente/Tomador", width=250
+        )
         self.ent_ded_nome.pack(side="left", padx=4, pady=6)
         self.ent_ded_doc = ctk.CTkEntry(f_form, placeholder_text="CNPJ/CPF", width=160)
         self.ent_ded_doc.pack(side="left", padx=4, pady=6)
-        self.ent_ded_obs = ctk.CTkEntry(f_form, placeholder_text="Observação", width=220)
+        self.ent_ded_obs = ctk.CTkEntry(
+            f_form, placeholder_text="Observação", width=220
+        )
         self.ent_ded_obs.pack(side="left", padx=4, pady=6)
-        ctk.CTkButton(f_form, text="Salvar", width=90, fg_color="#1976D2", command=self.salvar_dedicado).pack(side="left", padx=4)
+        ctk.CTkButton(
+            f_form,
+            text="Salvar",
+            width=90,
+            fg_color="#1976D2",
+            command=self.salvar_dedicado,
+        ).pack(side="left", padx=4)
 
         tabela_frame = tk.Frame(c)
         tabela_frame.pack(fill="both", expand=True, padx=10, pady=5)
-        self.tree_dedicados = ttk.Treeview(tabela_frame, columns=("nome", "doc", "obs"), show="headings")
+        self.tree_dedicados = ttk.Treeview(
+            tabela_frame, columns=("nome", "doc", "obs"), show="headings"
+        )
         self.tree_dedicados.heading("nome", text="CLIENTE")
         self.tree_dedicados.heading("doc", text="CNPJ / CPF")
         self.tree_dedicados.heading("obs", text="OBSERVAÇÃO")
@@ -156,7 +239,12 @@ class JanelaConfiguracoes(ctk.CTkToplevel):
 
         botoes = ctk.CTkFrame(c, fg_color="transparent")
         botoes.pack(fill="x", padx=10, pady=5)
-        ctk.CTkButton(botoes, text="🗑️ Excluir Selecionado", fg_color="#B71C1C", command=self.excluir_dedicado).pack(side="left")
+        ctk.CTkButton(
+            botoes,
+            text="🗑️ Excluir Selecionado",
+            fg_color="#B71C1C",
+            command=self.excluir_dedicado,
+        ).pack(side="left")
 
         self.atualizar_tabela_dedicados()
 
@@ -179,7 +267,11 @@ class JanelaConfiguracoes(ctk.CTkToplevel):
 
     def sugerir_chaves(self):
         txt = (self.texto_pdf1 or self.texto_pdf2)[:600].upper()
-        palavras = [p for p in re.findall(r"\b[A-ZÁÉÍÓÚ]{4,}\b", txt) if p not in ("DOCUMENTO", "VALOR", "DATA", "ESTADO")]
+        palavras = [
+            p
+            for p in re.findall(r"\b[A-ZÁÉÍÓÚ]{4,}\b", txt)
+            if p not in ("DOCUMENTO", "VALOR", "DATA", "ESTADO")
+        ]
         if palavras:
             self.ent_chaves.delete(0, tk.END)
             self.ent_chaves.insert(0, ", ".join(dict.fromkeys(palavras[:4])))
@@ -192,17 +284,24 @@ class JanelaConfiguracoes(ctk.CTkToplevel):
         def _get(reg, target):
             try:
                 m = re.search(reg, target, re.IGNORECASE)
-                return m.group(1 if m.groups() else 0).strip() if m else "Não localizado"
+                return (
+                    m.group(1 if m.groups() else 0).strip() if m else "Não localizado"
+                )
             except Exception as e:
                 return f"Erro: {e}"
 
         termo = _get(self.ent_r_termo.get(), txt)
-        venc = padronizar_data_ddmmyyyy(_get(self.ent_r_venc.get(), self.texto_pdf1 or txt))
+        venc = padronizar_data_ddmmyyyy(
+            _get(self.ent_r_venc.get(), self.texto_pdf1 or txt)
+        )
         valor = _get(self.ent_r_valor.get(), self.texto_pdf1 or txt)
         barras = _get(self.ent_r_barras.get(), txt)
 
         self.txt_res.delete("0.0", tk.END)
-        self.txt_res.insert(tk.END, f"TERMO: {termo}\nVENCIMENTO: {venc}\nVALOR: {valor}\nBARRAS: {barras}")
+        self.txt_res.insert(
+            tk.END,
+            f"TERMO: {termo}\nVENCIMENTO: {venc}\nVALOR: {valor}\nBARRAS: {barras}",
+        )
 
     def salvar_layout(self):
         nome = self.ent_nome.get().strip().upper()
@@ -210,7 +309,9 @@ class JanelaConfiguracoes(ctk.CTkToplevel):
             return messagebox.showwarning("Atenção", "Informe o nome.")
         cfg = {
             "uf": self.ent_uf.get().strip().upper(),
-            "palavras_chave": [k.strip() for k in self.ent_chaves.get().split(",") if k.strip()],
+            "palavras_chave": [
+                k.strip() for k in self.ent_chaves.get().split(",") if k.strip()
+            ],
             "regex_termo": self.ent_r_termo.get().strip(),
             "regex_vencimento": self.ent_r_venc.get().strip(),
             "regex_valor": self.ent_r_valor.get().strip(),
@@ -278,8 +379,6 @@ class JanelaConfiguracoes(ctk.CTkToplevel):
     def atualizar_tabela_dedicados(self):
         for i in self.tree_dedicados.get_children():
             self.tree_dedicados.delete(i)
-        for k, reg in self.gerenciador_dedicados.detalhes.items():
-            self.tree_dedicados.insert("", tk.END, values=(reg.get("nome", k), reg.get("documento", ""), reg.get("observacao", "")))
 
 
 class JanelaUnificarTomador(ctk.CTkToplevel):
@@ -296,10 +395,24 @@ class JanelaUnificarTomador(ctk.CTkToplevel):
     def construir_interface(self):
         c = ctk.CTkFrame(self, fg_color="#F1F5F9", corner_radius=12)
         c.pack(fill="both", expand=True, padx=20, pady=20)
-        ctk.CTkLabel(c, text="Unificar Documentos por Cliente", font=("Segoe UI", 16, "bold"), text_color="#D31145").pack(anchor="w", padx=15, pady=(10, 5))
+        ctk.CTkLabel(
+            c,
+            text="Unificar Documentos por Cliente",
+            font=("Segoe UI", 16, "bold"),
+            text_color="#D31145",
+        ).pack(anchor="w", padx=15, pady=(10, 5))
 
-        tomadores = sorted({str(i.get("TOMADOR", "")).strip() for i in self.app_gui.app_state.dados_em_memoria if str(i.get("TOMADOR", "")).strip() not in ("", "Aguardando Conciliação", "Não Conciliado")})
-        self.combo_tomador = ctk.CTkComboBox(c, values=tomadores or ["Nenhum conciliado"], width=520, height=34)
+        tomadores = sorted(
+            {
+                str(i.get("TOMADOR", "")).strip()
+                for i in self.app_gui.app_state.dados_em_memoria
+                if str(i.get("TOMADOR", "")).strip()
+                not in ("", "Aguardando Conciliação", "Não Conciliado")
+            }
+        )
+        self.combo_tomador = ctk.CTkComboBox(
+            c, values=tomadores or ["Nenhum conciliado"], width=520, height=34
+        )
         self.combo_tomador.pack(padx=15, pady=8)
 
         ctk.CTkLabel(c, text="Pasta Origem PDFs:").pack(anchor="w", padx=15)
@@ -309,10 +422,18 @@ class JanelaUnificarTomador(ctk.CTkToplevel):
 
         ctk.CTkLabel(c, text="Pasta Destino Unificados:").pack(anchor="w", padx=15)
         self.ent_destino = ctk.CTkEntry(c, width=520)
-        self.ent_destino.insert(0, os.path.join(self.app_gui.ultimo_dir_base, "UNIFICADOS"))
+        self.ent_destino.insert(
+            0, os.path.join(self.app_gui.ultimo_dir_base, "UNIFICADOS")
+        )
         self.ent_destino.pack(padx=15, pady=4)
 
-        BotaoArredondado3D(c, text="⚡ EXECUTAR UNIFICAÇÃO", width=520, height=38, command=self.executar).pack(pady=15)
+        BotaoArredondado3D(
+            c,
+            text="⚡ EXECUTAR UNIFICAÇÃO",
+            width=520,
+            height=38,
+            command=self.executar,
+        ).pack(pady=15)
 
     def executar(self):
         tomador = self.combo_tomador.get()
@@ -321,12 +442,20 @@ class JanelaUnificarTomador(ctk.CTkToplevel):
         if not tomador or tomador.startswith("Nenhum") or not os.path.exists(orig):
             return messagebox.showwarning("Atenção", "Preencha os campos corretamente.")
         self.destroy()
-        threading.Thread(target=self._processar_thread, args=(tomador, orig, dest), daemon=True).start()
+        threading.Thread(
+            target=self._processar_thread, args=(tomador, orig, dest), daemon=True
+        ).start()
 
     def _processar_thread(self, tomador, orig, dest):
         self.app_gui.log(f"[Unificação] Buscando arquivos do cliente '{tomador}'...")
-        termos = {str(i.get("TERMO")) for i in self.app_gui.app_state.dados_em_memoria if tomador in str(i.get("TOMADOR"))}
-        agrupados = {t: {"dars": [], "termos": []} for t in termos if t != "Não localizado"}
+        termos = {
+            str(i.get("TERMO"))
+            for i in self.app_gui.app_state.dados_em_memoria
+            if tomador in str(i.get("TOMADOR"))
+        }
+        agrupados = {
+            t: {"dars": [], "termos": []} for t in termos if t != "Não localizado"
+        }
 
         for root, _, files in os.walk(orig):
             for file in files:
@@ -351,4 +480,6 @@ class JanelaUnificarTomador(ctk.CTkToplevel):
                     f_out.write(merged)
                 sucessos += 1
 
-        self.app_gui.log(f"[Unificação] Concluída. {sucessos} arquivo(s) mesclado(s) salvos em {dest}.")
+        self.app_gui.log(
+            f"[Unificação] Concluída. {sucessos} arquivo(s) mesclado(s) salvos em {dest}."
+        )

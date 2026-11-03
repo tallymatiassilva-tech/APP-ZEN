@@ -11,7 +11,6 @@ class Settings:
     base_dir: Path = Path(__file__).resolve().parent.parent
     icone_app: str = "icons8-coordenada-z-48.ico"
     arquivo_layouts: str = "layouts_custom.json"
-    arquivo_dedicados: str = "base_clientes_dedicados.json"
     arquivo_memoria: str = "memoria_diaria_jadlog.json"
     pasta_checkpoints: str = "checkpoints"
     timeout_api: int = 15
