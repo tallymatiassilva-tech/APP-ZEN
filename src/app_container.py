@@ -1,3 +1,4 @@
+from src.app_legacy import GerenciadorLayouts
 from src.services.extraction_service import ExtractionService
 from src.services.fraction_service import FractionService
 from src.services.pdf_service import PdfService

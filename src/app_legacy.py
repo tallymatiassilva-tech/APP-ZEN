@@ -530,6 +530,10 @@ def extrair_dados_tabela_fraction(soup: Any, txt: str, cte_code: str):
 
     return tomador, remetente, destinatario, cnpjs
 
+def _doc_valido(valor: Any) -> str:
+    """Normaliza CPF/CNPJ: só dígitos, aceitando 11 (CPF) ou 14 (CNPJ)."""
+    d = re.sub(r"\D", "", str(valor or ""))
+    return d if len(d) in (11, 14) else ""
 
 def _detectar_rotulo_controle_fraction(form: Any, controle: Any) -> str:
     controle_id = controle.get("id")
@@ -567,168 +571,166 @@ def _detectar_rotulo_controle_fraction(form: Any, controle: Any) -> str:
 
 
 def _preparar_formulario_fraction(form: Any, page_url: str, cte_code: str):
+    """
+    Monta o payload de busca de CTe do Fraction (JSF / PrimeFaces).
+
+    Formulário alvo, capturado em /FractionWeb/jad/pesquisar:
+        <form action="/FractionWeb/jad/pesquisar?execution=e2s1" method="post">
+            <input type="hidden" name="frmPesquisa">
+            <textarea name="frmPesquisa:cte"></textarea>
+            <input type="radio" name="frmPesquisa:tipo" id="frmPesquisa:tipo:0..10">
+            <button type="submit" name="frmPesquisa:id_enviar">
+            <input type="hidden" name="javax.faces.ViewState">
+
+    Retorna (action_absoluta, "post", [(nome, valor), ...]) ou None quando o
+    formulário não é o de pesquisa (login, MFA, troca de senha, notificação).
+    """
     controles = form.find_all(["input", "textarea", "select", "button"])
     if not controles:
         return None
 
-    # MODO 1: Formulário "Consulta" / "Consulta Geral" (Imagem 1)
-    # Tem campo específico com rótulo/nome/id de 'CTE' / 'Conhecimento'
-    campo_cte_direto = None
-    for controle in controles:
-        if controle.name == "input" and str(controle.get("type", "text")).lower() in (
-            "text",
-            "search",
-            "",
-        ):
-            rotulo = _detectar_rotulo_controle_fraction(form, controle).lower()
-            nome = str(controle.get("name", "")).lower()
-            cid = str(controle.get("id", "")).lower()
-            if (
-                re.search(r"^\s*cte\b|\bcte\s*$|conhecimento|nrcte|numcte", rotulo)
-                or re.search(r"\bcte\b|conhecimento|nrcte|numcte", nome)
-                or re.search(r"\bcte\b|conhecimento|nrcte|numcte", cid)
-            ):
-                campo_cte_direto = controle
-                break
-
-    # MODO 2: Formulário "Procurar" (Imagem 2)
-    # Tem campo genérico "Código:" (textarea ou input) e opções de rádio (Conhecimento / Remessa / Sem filtro)
-    campo_codigo_generico = None
-    if campo_cte_direto is None:
-        for controle in controles:
-            if controle.name in ("textarea", "input") and str(
-                controle.get("type", "text")
-            ).lower() in ("text", "textarea", ""):
-                rotulo = _detectar_rotulo_controle_fraction(form, controle).lower()
-                nome = str(controle.get("name", "")).lower()
-                cid = str(controle.get("id", "")).lower()
-                if (
-                    re.search(r"c[oó]d|codigo", rotulo)
-                    or re.search(r"c[oó]d|codigo", nome)
-                    or re.search(r"c[oó]d|codigo", cid)
-                ):
-                    campo_codigo_generico = controle
-                    break
-        if campo_codigo_generico is None:
-            campo_codigo_generico = next(
-                (c for c in controles if c.name == "textarea" and c.get("name")), None
-            )
-
-    # Se não identificou nem campo direto de CTE nem campo de Código, formulário não é de busca de CTe
-    if campo_cte_direto is None and campo_codigo_generico is None:
+    # ---- 1) Descarta formulários que não são de busca ------------------
+    action_bruta = str(form.get("action", "") or "").strip()
+    if "login" in action_bruta.lower():
         return None
 
-    # Se houver botões de rádio (como na Imagem 2), seleciona o melhor filtro: Conhecimento > ID da remessa > Sem filtro
+    todos_os_nomes = " ".join(str(c.get("name", "") or "") for c in controles).lower()
+    if re.search(
+        r"codigomfa|atualizasenha|id_senha|id_usuario|botao_login"
+        r"|form_notificacao|form_navegador",
+        todos_os_nomes,
+    ):
+        return None
+
+    # ---- 2) Campo do CTe (no form real é um <textarea>) ----------------
+    padrao_cte = r"\bcte\b|conhecimento|nrcte|numcte|num_conhecimento"
+    campo_cte = None
+
+    for controle in controles:
+        if controle.name not in ("input", "textarea"):
+            continue
+        tipo = str(controle.get("type", "text") or "text").lower()
+        if tipo not in ("text", "search", ""):
+            continue
+        nome = str(controle.get("name", "") or "").lower()
+        cid = str(controle.get("id", "") or "").lower()
+        rotulo = (_detectar_rotulo_controle_fraction(form, controle) or "").lower()
+        if (
+            re.search(padrao_cte, nome)
+            or re.search(padrao_cte, cid)
+            or re.search(padrao_cte, rotulo)
+        ):
+            campo_cte = controle
+            break
+
+    # Fallback: campo genérico de código/pesquisa do layout antigo
+    campo_codigo = None
+    if campo_cte is None:
+        for controle in controles:
+            if controle.name not in ("input", "textarea"):
+                continue
+            tipo = str(controle.get("type", "text") or "text").lower()
+            if tipo not in ("text", "textarea", ""):
+                continue
+            alvo = " ".join(
+                [
+                    str(controle.get("name", "") or ""),
+                    str(controle.get("id", "") or ""),
+                    _detectar_rotulo_controle_fraction(form, controle) or "",
+                ]
+            ).lower()
+            if re.search(r"c[oó]digo|pesquis|filtro", alvo):
+                campo_codigo = controle
+                break
+
+    if campo_cte is None and campo_codigo is None:
+        return None
+
+    # ---- 3) Rádio do filtro: tem que ser "Conhecimento" (CTe) ----------
     radios = [
         c
         for c in controles
         if c.name == "input" and str(c.get("type", "")).lower() == "radio"
     ]
     radio_escolhido = None
+
     if radios:
-        # 1. Conhecimento (CTe)
+        # 3.1 rótulo, value ou id
         for r in radios:
-            rot = _detectar_rotulo_controle_fraction(form, r).lower()
-            val = str(r.get("value", "")).lower()
-            if re.search(r"conhec", rot) or re.search(r"conhec", val):
+            rotulo = (_detectar_rotulo_controle_fraction(form, r) or "").lower()
+            valor = str(r.get("value", "") or "").lower()
+            rid = str(r.get("id", "") or "").lower()
+            if re.search(r"conhec|\bcte\b", " ".join([rotulo, valor, rid])):
                 radio_escolhido = r
                 break
-        # 2. ID da remessa (Remessa)
+
+        # 3.2 <label for="id"> explícito
         if radio_escolhido is None:
             for r in radios:
-                rot = _detectar_rotulo_controle_fraction(form, r).lower()
-                val = str(r.get("value", "")).lower()
-                if re.search(r"remessa", rot) or re.search(r"remessa", val):
-                    radio_escolhido = r
-                    break
-        # 3. Sem filtro
-        if radio_escolhido is None:
-            for r in radios:
-                rot = _detectar_rotulo_controle_fraction(form, r).lower()
-                val = str(r.get("value", "")).lower()
-                if re.search(r"sem filtro|filtro", rot) or re.search(
-                    r"sem_filtro", val
+                rid = str(r.get("id", "") or "")
+                if not rid:
+                    continue
+                lbl = form.find("label", attrs={"for": rid})
+                if lbl is not None and re.search(
+                    r"conhec|\bcte\b", lbl.get_text(" ", strip=True).lower()
                 ):
                     radio_escolhido = r
                     break
+
+        # 3.3 último recurso
         if radio_escolhido is None:
             radio_escolhido = radios[0]
 
-    select_conhecimento = None
-    if not radios:
-        for select in (c for c in controles if c.name == "select" and c.get("name")):
-            opcao = next(
-                (
-                    op
-                    for op in select.find_all("option")
-                    if re.search(
-                        r"conhec|remessa", op.get_text(" ", strip=True), re.IGNORECASE
-                    )
-                ),
-                None,
-            )
-            if opcao is not None:
-                select_conhecimento = (select, opcao)
-                break
+    # ---- 4) Payload ----------------------------------------------------
+    action = urljoin(page_url, action_bruta or page_url)
+    method = str(form.get("method", "post") or "post").strip().lower()
 
-    # Monta a lista de campos para envio (payload)
     campos = []
-    data_inicio_expandida = (datetime.now() - timedelta(days=90)).strftime("%d/%m/%Y")
-    data_fim_hoje = (datetime.now() + timedelta(days=1)).strftime("%d/%m/%Y")
+    grupos_radio_enviados = set()
 
     for controle in controles:
-        nome = controle.get("name")
-        if not nome:
-            continue
-        tipo = str(controle.get("type", "")).lower()
-        rotulo = _detectar_rotulo_controle_fraction(form, controle).lower()
+        nome = str(controle.get("name", "") or "").strip()
+        tipo = str(controle.get("type", "") or "").lower()
 
-        if controle is campo_cte_direto or controle is campo_codigo_generico:
-            campos.append((nome, cte_code))
-        elif radios and controle is radio_escolhido:
-            campos.append((nome, str(controle.get("value", "on"))))
-        elif tipo == "radio":
-            # Ignora outros botões de rádio do mesmo grupo
+        if controle is campo_cte or controle is campo_codigo:
+            campos.append((nome, str(cte_code)))
             continue
-        elif select_conhecimento and controle is select_conhecimento[0]:
-            campos.append((nome, str(select_conhecimento[1].get("value", ""))))
-        elif re.search(
-            r"data\s*de\s*in[ií]cio|dataini|dtini|inicio", rotulo + " " + nome
-        ):
-            # No form Consulta (Imagem 1), a data vem com hoje. Expande para 90 dias atrás para não perder o CTE!
-            campos.append((nome, data_inicio_expandida))
-        elif re.search(
-            r"data\s*de\s*t[eé]rmino|datafim|dtfim|termino", rotulo + " " + nome
-        ):
-            campos.append((nome, data_fim_hoje))
-        elif tipo in ("hidden", "submit", "button"):
-            val = str(controle.get("value", ""))
-            # Se for botão, não envia ações de cancelamento ou saída
-            if tipo in ("submit", "button"):  # noqa: SIM102
-                if re.search(
-                    r"cancel|voltar|limpar|sair", nome + " " + val, re.IGNORECASE
-# sourcery skip: merge-nested-ifs
-                ):
-                    continue
-            campos.append((nome, val))
-        elif tipo == "checkbox" and controle.has_attr("checked"):
-            campos.append((nome, str(controle.get("value", "on"))))
-        elif controle.name == "select":
-            selecionadas = controle.find_all("option", selected=True)
-            if selecionadas:
-                campos.extend(
-                    (nome, str(op.get("value", op.get_text(strip=True))))
-                    for op in selecionadas
-                )
-        elif controle.name == "textarea":
-            campos.append((nome, controle.get_text()))
-        elif controle.name == "input" and tipo in ("text", "search"):
-            campos.append((nome, str(controle.get("value", ""))))
 
-    action = urljoin(page_url, str(form.get("action") or page_url))
-    method = str(form.get("method", "get")).lower()
+        if tipo == "radio":
+            # envia só o rádio escolhido, uma vez por grupo
+            if controle is radio_escolhido and nome not in grupos_radio_enviados:
+                campos.append((nome, str(controle.get("value", "on") or "on")))
+                grupos_radio_enviados.add(nome)
+            continue
+
+        if tipo == "checkbox":
+            if controle.has_attr("checked") and nome:
+                campos.append((nome, str(controle.get("value", "on") or "on")))
+            continue
+
+        if tipo in ("submit", "button"):
+            # PrimeFaces só executa a ação se o nome do botão for enviado
+            if nome:
+                campos.append((nome, str(controle.get("value", "") or "")))
+            continue
+
+        if controle.name == "select":
+            opcao = controle.find("option", selected=True) or controle.find("option")
+            if opcao is not None and nome:
+                campos.append((nome, str(opcao.get("value", "") or "")))
+            continue
+
+        if controle.name == "textarea" or tipo in ("hidden", "text", "search"):
+            if not nome:
+                continue
+            campos.append((nome, str(controle.get("value", "") or "")))
+            continue
+
+    # JSF/PrimeFaces exige o ViewState daquele formulário específico
+    if not any(n == "javax.faces.ViewState" for n, _ in campos):
+        return None
+
     return action, method, campos
-
 
 def chave_nfe_valida(chave: str) -> bool:
     chave_limpa = re.sub(r"\D", "", str(chave or ""))
@@ -1225,8 +1227,8 @@ def salvar_planilha_multisheets(
             if (idx_tomador != -1 and idx_tomador < len(row_list))
             else ""
         )
-    
-          
+
+
     base_path, ext = os.path.splitext(caminho_arquivo)
 
     if HAS_OPENPYXL:
@@ -1364,7 +1366,7 @@ def salvar_planilha_multisheets(
             ws_faltando = wb.create_sheet(title="QUARENTENA")
             adicionar_e_formatar_aba(ws_faltando, linhas_faltando)
 
-           
+
             wb.save(caminho_xlsx)
             return caminho_xlsx
         except Exception as e:  # noqa: BLE001
@@ -1389,7 +1391,7 @@ def salvar_planilha_multisheets(
             for r in linhas_faltando:
                 escritor.writerow(r)
 
-   
+
     return f"{caminho_csv_ok} / {caminho_csv_quarentena}"
 
 
@@ -2539,7 +2541,7 @@ class JanelaConfiguracoes(ctk.CTkToplevel):
         self,
         parent,
         gerenciador_layouts: GerenciadorLayouts,
-       
+
         app_gui,
     ):
         super().__init__(parent)
@@ -2581,7 +2583,7 @@ class JanelaConfiguracoes(ctk.CTkToplevel):
         self.tab_layouts = self.tabview.add("🎓 Gestor Layouts (Aprendizado Duplo)")
 
         self._construir_aba_layouts()
-      
+
 
     def _construir_aba_layouts(self):
         top_frame = ctk.CTkFrame(self.tab_layouts, fg_color="#E2E8F0")
@@ -3433,7 +3435,7 @@ class ZendeskAppGUI:
         self.tickets_processados = {}
         self.ctes_consultados_cache = {}
         self.gerenciador_layouts = GerenciadorLayouts()
-       
+
 
         pasta_docs = os.path.join(os.path.expanduser("~"), "Documents")
         if not os.path.exists(pasta_docs):
@@ -3762,7 +3764,7 @@ class ZendeskAppGUI:
             fill="x", pady=6, padx=15
         )
 
-    
+
         ctk.CTkFrame(sidebar, height=2, fg_color="#CBD5E1").pack(
             fill="x", pady=6, padx=15
         )
@@ -4563,7 +4565,7 @@ class ZendeskAppGUI:
                     self.janela_config = JanelaConfiguracoes(
                         self.janela,
                         self.gerenciador_layouts,
-                       
+
                         self,
                     )
 
@@ -6764,16 +6766,7 @@ class ZendeskAppGUI:
 
             session = _thread_local.session
 
-            urls_para_testar = [
-                "https://jadlog.com.br/FractionWeb/jad/pesquisar",
-                "https://jadlog.com.br/FractionWeb/jad/consulta",
-                "https://jadlog.com.br/FractionWeb/jad/consultaGeral",
-                "https://jadlog.com.br/FractionWeb/jad/consultar",
-                "https://jadlog.com.br/FractionWeb/jad/tracking",
-                "https://jadlog.com.br/FractionWeb/jad/",
-                "https://jadlog.com.br/FractionWeb/pesquisar.jad",
-                "https://jadlog.com.br/FractionWeb/jad/tracking.jadlog",
-            ]
+            urls_para_testar = ["https://jadlog.com.br/FractionWeb/jad/pesquisar"]
 
             formulario_localizado = False
             for url in urls_para_testar:
@@ -7134,6 +7127,16 @@ class ZendeskAppGUI:
             # 2. PREENCHIMENTO SEM SOBRESCREVER (COLUNAS Q, R, S, T, U, V E DACTE)
             # Os dados do Fraction são gravados mesmo se a guia for para Quarentena
             with self.lock:
+                st_antes = str(item_ref.get("STATUS CONFERÊNCIA", "OK"))
+                docs_sheet_orig = set()
+                if st_antes in ("OK", "Aguardando Conciliação", ""):
+                    for _v in (
+                        item_ref.get("EMITENTE - CPF/CNPJ"),
+                        item_ref.get("DESTINATÁRIO - CPF/CNPJ"),
+                    ):
+                        _d = _doc_valido(_v)
+                        if _d:
+                            docs_sheet_orig.add(_d)
                 item_ref["TOMADOR"] = tomador_fraction
 
                 if campo_vazio("DACTE") and dacte_frac:
@@ -7175,101 +7178,125 @@ class ZendeskAppGUI:
                                 item_ref[col_extra]
                             ]
 
-            # 3. LÓGICA DE VALIDAÇÃO (CRUZAMENTO SEGURO)
-            # Reúne todos os documentos do Fraction (incluindo CNPJ embutido na NF-e)
-            docs_fraction = set(dados_frac.get("cnpjs", []))
-            for d in [rem_cnpj, rem_ie, dest_cnpj, dest_ie]:
-                d_c = re.sub(r"\D", "", str(d))
-                if len(d_c) >= 5:
-                    docs_fraction.add(d_c)
+             # 3. LÓGICA DE VALIDAÇÃO (CRUZAMENTO SEGURO)
 
-            for ch in dados_frac.get("chaves_nfe", []):
-                if len(ch) == 44 and ch[20:22] == "55":
-                    docs_fraction.add(ch[6:20])
-
-            doc_guia_c = re.sub(
-                r"\D", "", str(item_ref.get("CPF/CNPJ DA GUIA", "")).strip()
-            )
-
-            # Documentos das Colunas R, S, U, V da Planilha
-            docs_r_s_u_v = {
-                re.sub(r"\D", "", str(item_ref.get(c, "")))
-                for c in [
-                    "EMITENTE - CPF/CNPJ",
-                    "EMITENTE - IE",
-                    "DESTINATÁRIO - CPF/CNPJ",
-                    "DESTINATÁRIO - IE",
-                ]
-                if len(re.sub(r"\D", "", str(item_ref.get(c, "")))) >= 5
+            # --- Universo de documentos do Fraction (só CPF/CNPJ válidos) ---
+            docs_frac = {
+                _doc_valido(d) for d in dados_frac.get("cnpjs", []) if _doc_valido(d)
             }
 
-            # Regra da Coluna W: confere se a Coluna C bate com R, S, U ou V OU com o Fraction
-            col_w_bateu = (
-                (doc_guia_c in docs_r_s_u_v) if (doc_guia_c and docs_r_s_u_v) else False
-            )
-            fraction_doc_bateu = (
-                bool((docs_r_s_u_v | {doc_guia_c}) & docs_fraction)
-                if docs_fraction
-                else False
-            )
-            doc_bateu = col_w_bateu or fraction_doc_bateu
+            chaves_frac = set()
+            docs_chave = set()
+            numeros_frac = set()
 
-            # Validação da Chave NF-e
+            for ch in dados_frac.get("chaves_nfe", []):
+                ch = re.sub(r"\D", "", str(ch))
+                if len(ch) != 44:
+                    continue
+                chaves_frac.add(ch)
+                if ch[20:22] == "55":
+                    emit = _doc_valido(ch[6:20])
+                    if emit:
+                        docs_chave.add(emit)
+                    numeros_frac.add(int(ch[25:34]))
+
+            for n in dados_frac.get("numeros_notas", []):
+                d = re.sub(r"\D", "", str(n))
+                if d:
+                    numeros_frac.add(int(d))
+
+            docs_frac_universo = docs_frac | docs_chave
+
+            # --- Lado da guia / planilha ---
+            doc_guia_c = _doc_valido(item_ref.get("CPF/CNPJ DA GUIA"))
+            termo_num = re.sub(r"\D", "", str(item_ref.get("TERMO", "")))
+
             chaves_guia = set(
-                re.findall(r"\b\d{44}\b", str(item_ref.get("CHAVE ARQUIVO", "")))
+                re.findall(
+                    r"\d{44}", re.sub(r"\D", "", str(item_ref.get("CHAVE ARQUIVO", "")))
+                )
             )
-            chaves_frac = set(dados_frac.get("chaves_nfe", []))
+
+            numeros_guia = {
+                int(d)
+                for d in re.findall(
+                    r"\d{1,9}",
+                    re.sub(r"\D", " ", str(item_ref.get("NÚMERO ARQUIVO", ""))),
+                )
+                if d and d != termo_num
+            }
+
+            if termo_num.isdigit():
+                numeros_frac.discard(int(termo_num))
+
+            # --- Veredito tri-estado: True / False / None (inconclusivo) ---
+            if doc_guia_c:
+                if docs_frac_universo:
+                    doc_conferido = doc_guia_c in docs_frac_universo
+                elif docs_sheet_orig:
+                    doc_conferido = doc_guia_c in docs_sheet_orig
+                else:
+                    doc_conferido = None
+            else:
+                doc_conferido = None
+
             chave_bateu = (
                 bool(chaves_guia & chaves_frac)
                 if (chaves_guia and chaves_frac)
-                else True
+                else None
             )
 
-            # Validação do Número NF-e (descarta número de Termo)
-            termo_limpo = re.sub(r"\D", "", str(item_ref.get("TERMO", "")))
-            numeros_guia = [
-                re.sub(r"\D", "", n).lstrip("0") or "0"
-                for n in re.findall(
-                    r"(?<!\d)\d{1,9}(?!\d)", str(item_ref.get("NÚMERO ARQUIVO", ""))
-                )
-                if re.sub(r"\D", "", n) != termo_limpo
-            ]
-            numeros_fraction = {
-                re.sub(r"\D", "", str(n)).lstrip("0") or "0"
-                for n in dados_frac.get("numeros_notas", [])
-                if str(n).strip()
-            }
             num_bateu = (
-                any(n in numeros_fraction for n in numeros_guia)
-                if (numeros_guia and numeros_fraction)
-                else True
+                bool(numeros_guia & numeros_frac)
+                if (numeros_guia and numeros_frac)
+                else None
             )
 
             # 4. ATUALIZAÇÃO DO STATUS DE CONFERÊNCIA
             motivos = []
-            if not doc_bateu and doc_guia_c:
-                motivos.append(
-                    f"Doc Guia ({doc_guia_c}) não confere com R/S/U/V nem com CTe"
-                )
-            if not chave_bateu:
+            if doc_conferido is False:
+                motivos.append(f"Doc da guia ({doc_guia_c}) não confere com o Fraction")
+            if chave_bateu is False:
                 motivos.append("Chave NF-e divergente do CTe")
-            if not num_bateu and numeros_guia and numeros_fraction:
-                motivos.append("Número NF-e divergente")
+            if num_bateu is False:
+                motivos.append(
+                    f"Número NF-e divergente (guia={sorted(numeros_guia)} frac={sorted(numeros_frac)})"
+                )
+
+            inconclusivos = [
+                nome
+                for nome, v in (
+                    ("documento", doc_conferido),
+                    ("chave NF-e", chave_bateu),
+                    ("número NF-e", num_bateu),
+                )
+                if v is None
+            ]
 
             with self.lock:
                 st_atual = str(item_ref.get("STATUS CONFERÊNCIA", "OK"))
-                if not motivos:
-                    if st_atual in ["OK", "Aguardando Conciliação", ""]:
-                        item_ref["STATUS CONFERÊNCIA"] = "VALIDADO NO FRACTION"
-                    self.log(
-                        f"[✓ VALIDADO] CTe {cte_confirmado} -> Tomador: {item_ref['TOMADOR']}"
-                    )
-                else:
+
+                if motivos:
                     status_erro = f"DIVERGÊNCIA CTI ({' | '.join(motivos)})"
                     item_ref["STATUS CONFERÊNCIA"] = status_erro
                     self.log(f"[⚠️ DIVERGÊNCIA] CTe {cte_confirmado}: {status_erro}")
                     with estatisticas_lock:
                         divergencias += 1
+                elif inconclusivos:
+                    item_ref["STATUS CONFERÊNCIA"] = "CONCILIADO PARCIAL"
+                    self.log(
+                        f"[~ PARCIAL] CTe {cte_confirmado} -> Tomador: "
+                        f"{item_ref.get('TOMADOR', '')} | sem evidência de: "
+                        f"{', '.join(inconclusivos)}"
+                    )
+                else:
+                    if st_atual in ["OK", "Aguardando Conciliação", ""]:
+                        item_ref["STATUS CONFERÊNCIA"] = "VALIDADO NO FRACTION"
+                    self.log(
+                        f"[✓ VALIDADO] CTe {cte_confirmado} -> "
+                        f"Tomador: {item_ref.get('TOMADOR', '')}"
+                    )
+
 
             concluidos += 1
             self.atualizar_progresso(concluidos, total_itens)
