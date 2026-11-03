@@ -30,9 +30,7 @@ def _extrair_regras_ac(txt_pdf: str, nome_anexo: str, nfe_map: dict):
     m_num = re.search(r"Número[\s\n\r:]*([\d\.]+)", txt_pdf, re.IGNORECASE)
     if m_num:
         termo = re.sub(r"\D", "", m_num[1])
-    elif m_proc := re.search(
-        r"Processo[\s\n\r]*Ativo\s*(\d+/\d{4})", txt_pdf, re.IGNORECASE
-    ):
+    elif m_proc := re.search(r"Processo[\s\n\r]*Ativo\s*(\d+/\d{4})", txt_pdf, re.IGNORECASE):
         termo = m_proc[1].strip()
     elif termo_alt := extrair_numero_termo_pdf(txt_pdf, nome_anexo):
         termo = termo_alt

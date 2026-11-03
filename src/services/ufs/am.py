@@ -6,7 +6,6 @@ from __future__ import annotations
 import re
 
 from src.services.document_classifier import (
-    e_dar_documento,
     extrair_codigo_barras_pdf,
     extrair_numero_termo_pdf,
     linha_digitavel_para_codigo_barras,
@@ -22,16 +21,12 @@ def _extrair_regras_am(txt_pdf: str, nome_anexo: str, nfe_map: dict):
 
     # 0. TRAVA EXCLUSIVA: Silencia Notas Fiscais (DANFE) para evitar linhas duplas
     # A nota apenas empresta a chave para cruzamento, não gerando linha própria.
-    if any(
-        k in txt_upper for k in ["DANFE", "RECEBEMOS DE", "DOCUMENTO AUXILIAR DA NOTA"]
-    ):
+    if any(k in txt_upper for k in ["DANFE", "RECEBEMOS DE", "DOCUMENTO AUXILIAR DA NOTA"]):
         chaves_encontradas = []
         for ch_raw in re.findall(r"(?<!\d)(?:(?:\d[\s\.-]*){44})(?!\d)", txt_pdf):
             ch_clean = re.sub(r"\D", "", ch_raw)
             if not ch_clean.startswith("8") and ch_clean not in chaves_encontradas:
-                nfe_map[ch_clean] = formatar_numero_arquivo(
-                    ch_clean[25:34].lstrip("0") or "0"
-                )
+                nfe_map[ch_clean] = formatar_numero_arquivo(ch_clean[25:34].lstrip("0") or "0")
                 chaves_encontradas.append(ch_clean)
 
         pares = [(ch, nfe_map.get(ch, "Sem Número")) for ch in chaves_encontradas] or [
@@ -128,9 +123,7 @@ def _extrair_regras_am(txt_pdf: str, nome_anexo: str, nfe_map: dict):
             chaves_encontradas.append(ch_clean)
 
     for chave in chaves_encontradas:
-        num_doc = nfe_map.get(
-            chave, formatar_numero_arquivo(chave[25:34].lstrip("0") or "0")
-        )
+        num_doc = nfe_map.get(chave, formatar_numero_arquivo(chave[25:34].lstrip("0") or "0"))
         pares_documento.append((chave, num_doc))
 
     if not pares_documento:

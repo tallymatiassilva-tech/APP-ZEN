@@ -1,0 +1,8 @@
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+exclude = ["checkpoints", "Tesseract-OCR", "__pycache__", ".pytest_cache"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+ignore = ["E501"]

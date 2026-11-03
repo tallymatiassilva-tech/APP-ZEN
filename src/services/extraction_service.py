@@ -3,11 +3,14 @@
 Sem regra fiscal aqui, só delega para o router.
 Espelha backup extrair_dados_por_uf linhas 1764-1785.
 """
+
 from __future__ import annotations
+
 from src.services.ufs.router import extrair_dados_por_uf
 from src.utils.logging_config import get_logger
 
 logger = get_logger("jadlog.extraction")
+
 
 def extrair_documento(
     uf: str,

@@ -1,5 +1,6 @@
 # src/services/pdf_service.py
 """Leitura, recorte e mesclagem de PDF. Sem regra fiscal de UF."""
+
 from __future__ import annotations
 
 import io
@@ -14,6 +15,7 @@ pdfplumber: Any = None
 HAS_PDFPLUMBER = False
 try:
     import pdfplumber
+
     HAS_PDFPLUMBER = True
 except ImportError:
     pass
@@ -22,8 +24,8 @@ convert_from_bytes: Any = None
 pytesseract: Any = None
 HAS_OCR = False
 try:
-    from pdf2image import convert_from_bytes
     import pytesseract
+    from pdf2image import convert_from_bytes
 
     if getattr(sys, "frozen", False):
         BASE_DIR = os.path.dirname(sys.executable)
@@ -56,7 +58,9 @@ except ImportError:
     print("[OCR] Módulos de OCR não disponíveis. OCR desabilitado.")
 
 
-def extrair_texto_por_caixa(pdf_bytes: bytes, bbox_pct: tuple[float, float, float, float], page_num: int = 0) -> str:
+def extrair_texto_por_caixa(
+    pdf_bytes: bytes, bbox_pct: tuple[float, float, float, float], page_num: int = 0
+) -> str:
     if not pdf_bytes or not HAS_PDFPLUMBER:
         return ""
     try:

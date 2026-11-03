@@ -1,8 +1,9 @@
-import os
 import ctypes
+import os
 import tkinter as tk
 
 ICONE_APP = "icons8-coordenada-z-48.ico"
+
 
 def configurar_dpi():
     if os.name == "nt":
@@ -13,12 +14,14 @@ def configurar_dpi():
         except Exception:
             pass
 
+
 def definir_icone(janela):
     if os.path.exists(ICONE_APP):
         try:
             janela.iconbitmap(ICONE_APP)
         except Exception:
             pass
+
 
 class BotaoArredondado3D(tk.Canvas):
     def __init__(
@@ -68,7 +71,9 @@ class BotaoArredondado3D(tk.Canvas):
         r = h / 2
         o1 = self.create_oval(x, y, x + 2 * r, y + h, fill=color, outline=color, width=1)
         o2 = self.create_oval(x + w - 2 * r, y, x + w, y + h, fill=color, outline=color, width=1)
-        rct = self.create_rectangle(x + r - 1, y, x + w - r + 1, y + h, fill=color, outline=color, width=1)
+        rct = self.create_rectangle(
+            x + r - 1, y, x + w - r + 1, y + h, fill=color, outline=color, width=1
+        )
         return [o1, o2, rct]
 
     def config_state(self, state, text=None):

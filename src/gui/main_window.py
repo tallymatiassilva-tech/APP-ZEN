@@ -71,9 +71,7 @@ class ZendeskAppGUI:
             text_color=self.BTN_ALTA[0],
         ).pack(pady=(15, 10))
 
-        subdomain_padrao = self.app_state.obter_credencial(
-            "subdomain", "jadloglogsticahelp"
-        )
+        subdomain_padrao = self.app_state.obter_credencial("subdomain", "jadloglogsticahelp")
         cookie_zd = self.app_state.obter_credencial("zendesk_cookie", "")
         cookie_frac = self.app_state.obter_credencial("jadlog_cookie", "")
 
@@ -83,9 +81,7 @@ class ZendeskAppGUI:
             font=("Segoe UI", 11, "bold"),
             text_color=self.BTN_ALTA[0],
         ).pack(anchor="w", padx=20, pady=(10, 2))
-        self.ent_subdomain = ctk.CTkEntry(
-            f, placeholder_text="Subdomínio", width=360, height=36
-        )
+        self.ent_subdomain = ctk.CTkEntry(f, placeholder_text="Subdomínio", width=360, height=36)
         self.ent_subdomain.insert(0, subdomain_padrao)
         self.ent_subdomain.pack(pady=4)
 
@@ -124,9 +120,7 @@ class ZendeskAppGUI:
         ck_fr = self.ent_cookie_frac.get().strip()
 
         if not sub or not ck_zd:
-            return messagebox.showwarning(
-                "Aviso", "Preencha subdomínio e Cookie Zendesk."
-            )
+            return messagebox.showwarning("Aviso", "Preencha subdomínio e Cookie Zendesk.")
 
         self.btn_login.config_state(tk.DISABLED, text="VALIDANDO...")
         self.tela_login.update()
@@ -206,16 +200,12 @@ class ZendeskAppGUI:
         cards.pack(fill="x", pady=(0, 10))
 
         def _card(titulo, valor, cor):
-            cd = ctk.CTkFrame(
-                cards, fg_color=self.COR_CARD, border_width=2, border_color=cor
-            )
+            cd = ctk.CTkFrame(cards, fg_color=self.COR_CARD, border_width=2, border_color=cor)
             cd.pack(side="left", fill="both", expand=True, padx=4)
             ctk.CTkLabel(cd, text=titulo, font=("Segoe UI", 9, "bold")).pack(
                 anchor="w", padx=8, pady=(4, 0)
             )
-            lbl = ctk.CTkLabel(
-                cd, text=valor, font=("Segoe UI", 13, "bold"), text_color=cor
-            )
+            lbl = ctk.CTkLabel(cd, text=valor, font=("Segoe UI", 13, "bold"), text_color=cor)
             lbl.pack(anchor="w", padx=8, pady=(0, 4))
             return lbl
 
@@ -251,9 +241,7 @@ class ZendeskAppGUI:
 
         t_frame = ctk.CTkFrame(main, fg_color=self.COR_CARD)
         t_frame.pack(fill="both", expand=True, pady=4)
-        self.tabela = ttk.Treeview(
-            t_frame, columns=[c[0] for c in self.colunas], show="headings"
-        )
+        self.tabela = ttk.Treeview(t_frame, columns=[c[0] for c in self.colunas], show="headings")
         for col, titulo, largura in self.colunas:
             self.tabela.heading(col, text=titulo)
             self.tabela.column(
@@ -300,9 +288,7 @@ class ZendeskAppGUI:
 
     def atualizar_progresso(self, atual: int, total: int):
         if self.janela:
-            self.janela.after(
-                0, lambda: self.progresso_var.set(atual / total if total > 0 else 0)
-            )
+            self.janela.after(0, lambda: self.progresso_var.set(atual / total if total > 0 else 0))
 
     def atualizar_cards_metricas(self):
         dados = self.app_state.dados_em_memoria
@@ -332,15 +318,11 @@ class ZendeskAppGUI:
 
             for v in val_str.split(","):
                 try:
-                    total_val += Decimal(
-                        normalizar_valor_monetario(v).replace(",", ".")
-                    )
+                    total_val += Decimal(normalizar_valor_monetario(v).replace(",", "."))
                 except Exception:  # noqa: BLE001, S110
                     pass
 
-        val_fmt = (
-            f"R$ {total_val:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-        )
+        val_fmt = f"R$ {total_val:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
         self.lbl_card_ok.configure(text=str(ok))
         self.lbl_card_venc.configure(text=str(venc))
         self.lbl_card_quar.configure(text=str(quar))
@@ -383,22 +365,6 @@ class ZendeskAppGUI:
             self.atualizar_tabela_gui()
             return
 
-        if acao == "configuracoes":
-            if not self.janela_config or not self.janela_config.winfo_exists():
-                self.janela_config = JanelaConfiguracoes(
-                    self.janela,
-                    self.gerenciador_layouts,
-                    self,
-                )
-            return
-
-        if acao == "sobre":
-            if not self.janela_sobre or not self.janela_sobre.winfo_exists():
-                self.janela_sobre = JanelaSobre(self.janela)
-            return
-
-        self.cancelar_operacao = False
-
         if acao == "planilha_carregar":
             arq = filedialog.askopenfilename(filetypes=[("Planilhas", "*.xlsx;*.csv")])
             if arq:
@@ -422,9 +388,7 @@ class ZendeskAppGUI:
 
         tickets = self.obter_tickets()
         if not tickets:
-            return messagebox.showwarning(
-                "Aviso", "Informe ao menos um número de ticket."
-            )
+            return messagebox.showwarning("Aviso", "Informe ao menos um número de ticket.")
 
         elif acao == "anexos":
             pasta = filedialog.askdirectory(title="Destino dos Anexos")

@@ -21,9 +21,7 @@ def _so_digitos(valor: str) -> str:
 
 
 def _extrair_termo_ms(txt_pdf: str, nome_anexo: str) -> str:
-    m_ta = re.search(
-        r"POSTO[^\d]{0,12}\d+[^\d]{0,16}:\s*(\d{6,15})", txt_pdf, re.IGNORECASE
-    )
+    m_ta = re.search(r"POSTO[^\d]{0,12}\d+[^\d]{0,16}:\s*(\d{6,15})", txt_pdf, re.IGNORECASE)
     if not m_ta:
         m_ta = re.search(
             r"TERMO\s*DE\s*APREENS[AÃ]O\s*N[º°o\.]*\s*(\d{6,15})",
@@ -130,9 +128,7 @@ def _extrair_regras_ms(txt_pdf: str, nome_anexo: str, nfe_map: dict):
             continue
         chaves.append(ch)
         if ch[20:22] != "57":
-            nfe_map.setdefault(
-                ch, formatar_numero_arquivo(ch[25:34].lstrip("0") or "0")
-            )
+            nfe_map.setdefault(ch, formatar_numero_arquivo(ch[25:34].lstrip("0") or "0"))
 
     pares = []
     if chaves:

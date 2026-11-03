@@ -1,5 +1,6 @@
 # src/services/ufs/geral.py
 """Regra fallback GERAL. Não citar AL, AP, AC, MS ou AM aqui."""
+
 from __future__ import annotations
 
 import re
@@ -22,10 +23,10 @@ def _extrair_regras_geral(txt_pdf: str, nome_anexo: str, nfe_map: dict):
     barras_orig, barras_44 = extrair_codigo_barras_pdf(txt_pdf)
     vencimento, valor = extrair_vencimento_e_valor_pdf(txt_pdf)
     vencimento = padronizar_data_ddmmyyyy(vencimento)
-    
+
     pares_documento, chaves_encontradas = [], []
     if not is_dar:
-        for ch in re.findall(r'\b(\d{44})\b', txt_pdf):
+        for ch in re.findall(r"\b(\d{44})\b", txt_pdf):
             if ch not in chaves_encontradas:
                 chaves_encontradas.append(ch)
         for chave in chaves_encontradas:
@@ -34,4 +35,12 @@ def _extrair_regras_geral(txt_pdf: str, nome_anexo: str, nfe_map: dict):
             if termo == "Não localizado":
                 termo = chave
 
-    return termo, list(dict.fromkeys(pares_documento)), barras_orig, barras_44, vencimento, valor, 'GERAL'
+    return (
+        termo,
+        list(dict.fromkeys(pares_documento)),
+        barras_orig,
+        barras_44,
+        vencimento,
+        valor,
+        "GERAL",
+    )

@@ -1,4 +1,3 @@
-from src.repositories.json_store import GerenciadorLayouts
 from src.services.extraction_service import ExtractionService
 from src.services.fraction_service import FractionService
 from src.services.pdf_service import PdfService
@@ -9,12 +8,14 @@ from src.states.app_state import AppState
 
 class AppContainer:
     def __init__(self):
+        self.spreadsheet_service = SpreadsheetService()
+        self.extraction_service = ExtractionService(
+            gerenciador_layouts=self.gerenciador_layouts
+        )
         # 1. Estado partilhado e persistência de sessão
         self.app_state = AppState()
 
         # 2. Gestor de layouts
-        self.gerenciador_layouts = GerenciadorLayouts()
-
         # 3. Clientes de rede
         subdomain = self.app_state.obter_credencial("subdomain", "jadloglogsticahelp")
         cookie_zd = self.app_state.obter_credencial("zendesk_cookie", "")
@@ -26,6 +27,4 @@ class AppContainer:
         # 4. Serviços de processamento de ficheiros
         self.pdf_service = PdfService()
         self.spreadsheet_service = SpreadsheetService()
-        self.extraction_service = ExtractionService(
-            gerenciador_layouts=self.gerenciador_layouts
-        )
+        self.extraction_service = ExtractionService(gerenciador_layouts=self.gerenciador_layouts)

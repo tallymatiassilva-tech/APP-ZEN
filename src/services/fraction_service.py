@@ -1,13 +1,11 @@
 import re
 import threading
-from decimal import Decimal
 from typing import Any
 from urllib.parse import urljoin
-from bs4 import BeautifulSoup
-import requests
-from requests.adapters import HTTPAdapter
 
-from src.utils.logging_config import log_terminal
+import requests
+from bs4 import BeautifulSoup
+from requests.adapters import HTTPAdapter
 
 
 def limpar_e_formatar_cookie(valor: str) -> str:
@@ -16,9 +14,7 @@ def limpar_e_formatar_cookie(valor: str) -> str:
         texto.startswith("'") and texto.endswith("'")
     ):
         texto = texto[1:-1].strip()
-    m_curl = re.search(
-        r'(?:-H\s+["\']?Cookie:\s*|Cookie:\s*)([^;\r\n]+)', texto, re.IGNORECASE
-    )
+    m_curl = re.search(r'(?:-H\s+["\']?Cookie:\s*|Cookie:\s*)([^;\r\n]+)', texto, re.IGNORECASE)
     if m_curl:
         texto = m_curl.group(1).strip()
     elif texto.lower().startswith("cookie:"):
@@ -88,7 +84,10 @@ class FractionService:
         if label:
             return label.get_text(" ", strip=True)
         for proximo in controle.next_siblings:
-            if getattr(proximo, "name", None) == "input" and str(proximo.get("type", "")).lower() == "radio":
+            if (
+                getattr(proximo, "name", None) == "input"
+                and str(proximo.get("type", "")).lower() == "radio"
+            ):
                 break
             if hasattr(proximo, "get_text"):
                 rotulo = proximo.get_text(" ", strip=True)
@@ -112,16 +111,22 @@ class FractionService:
                 rot = self._detectar_rotulo_controle(form, c).lower()
                 nm = str(c.get("name", "")).lower()
                 cid = str(c.get("id", "")).lower()
-                if re.search(r"^\s*cte\b|\bcte\s*$|conhecimento|nrcte|numcte", rot) or \
-                   re.search(r"\bcte\b|conhecimento|nrcte|numcte", nm) or \
-                   re.search(r"\bcte\b|conhecimento|nrcte|numcte", cid):
+                if (
+                    re.search(r"^\s*cte\b|\bcte\s*$|conhecimento|nrcte|numcte", rot)
+                    or re.search(r"\bcte\b|conhecimento|nrcte|numcte", nm)
+                    or re.search(r"\bcte\b|conhecimento|nrcte|numcte", cid)
+                ):
                     campo_cte_direto = c
                     break
 
         campo_cod_generico = None
         if campo_cte_direto is None:
             for c in controles:
-                if c.name in ("textarea", "input") and str(c.get("type", "text")).lower() in ("text", "textarea", ""):
+                if c.name in ("textarea", "input") and str(c.get("type", "text")).lower() in (
+                    "text",
+                    "textarea",
+                    "",
+                ):
                     rot = self._detectar_rotulo_controle(form, c).lower()
                     nm = str(c.get("name", "")).lower()
                     cid = str(c.get("id", "")).lower()
@@ -129,12 +134,16 @@ class FractionService:
                         campo_cod_generico = c
                         break
             if campo_cod_generico is None:
-                campo_cod_generico = next((c for c in controles if c.name == "textarea" and c.get("name")), None)
+                campo_cod_generico = next(
+                    (c for c in controles if c.name == "textarea" and c.get("name")), None
+                )
 
         if campo_cte_direto is None and campo_cod_generico is None:
             return None
 
-        radios = [c for c in controles if c.name == "input" and str(c.get("type", "")).lower() == "radio"]
+        radios = [
+            c for c in controles if c.name == "input" and str(c.get("type", "")).lower() == "radio"
+        ]
         radio_sel = None
         if radios:
             for r in radios:
@@ -145,7 +154,12 @@ class FractionService:
                     break
             if radio_sel is None:
                 for r in radios:
-                    if "remessa" in (self._detectar_rotulo_controle(form, r) + str(r.get("value", ""))).lower():
+                    if (
+                        "remessa"
+                        in (
+                            self._detectar_rotulo_controle(form, r) + str(r.get("value", ""))
+                        ).lower()
+                    ):
                         radio_sel = r
                         break
             radio_sel = radio_sel or radios[0]
@@ -153,7 +167,14 @@ class FractionService:
         select_conhec = None
         if not radios:
             for sel in (c for c in controles if c.name == "select" and c.get("name")):
-                op = next((o for o in sel.find_all("option") if re.search(r"conhec|remessa", o.get_text(" ", strip=True), re.IGNORECASE)), None)
+                op = next(
+                    (
+                        o
+                        for o in sel.find_all("option")
+                        if re.search(r"conhec|remessa", o.get_text(" ", strip=True), re.IGNORECASE)
+                    ),
+                    None,
+                )
                 if op:
                     select_conhec = (sel, op)
                     break
@@ -186,7 +207,9 @@ class FractionService:
         method = str(form.get("method", "get")).lower()
         return action, method, campos
 
-    def extrair_dados_tabela(self, soup: Any, txt: str, cte_code: str) -> tuple[str, str, str, list[str]]:
+    def extrair_dados_tabela(
+        self, soup: Any, txt: str, cte_code: str
+    ) -> tuple[str, str, str, list[str]]:
         tomador, remetente, destinatario = "", "", ""
         cnpjs = []
 
@@ -194,11 +217,17 @@ class FractionService:
             header_row = table.find("tr")
             if not header_row:
                 continue
-            headers = [th.get_text(" ", strip=True).upper() for th in header_row.find_all(["th", "td"])]
-            idx_tom = next((i for i, h in enumerate(headers) if re.search(r"TOMADOR|PAGADOR|CLIENTE", h)), None)
+            headers = [
+                th.get_text(" ", strip=True).upper() for th in header_row.find_all(["th", "td"])
+            ]
+            idx_tom = next(
+                (i for i, h in enumerate(headers) if re.search(r"TOMADOR|PAGADOR|CLIENTE", h)), None
+            )
             idx_rem = next((i for i, h in enumerate(headers) if re.search(r"REMET", h)), None)
             idx_dest = next((i for i, h in enumerate(headers) if re.search(r"DESTINAT", h)), None)
-            idx_doc = next((i for i, h in enumerate(headers) if re.search(r"CNPJ|CPF|DOC", h)), None)
+            idx_doc = next(
+                (i for i, h in enumerate(headers) if re.search(r"CNPJ|CPF|DOC", h)), None
+            )
 
             for tr in table.find_all("tr")[1:]:
                 cells = [td.get_text(" ", strip=True) for td in tr.find_all("td")]
@@ -221,15 +250,27 @@ class FractionService:
                 break
 
         if not tomador:
-            m = re.search(r"(?:Tomador|Pagador|Cliente)\s*[:\-]?\s*([^\n\r\|;]+?)(?=\s*Remetente|\s*Destinat|\s*Informa|\s*Volume|\s*CNPJ|\s*$)", txt, re.IGNORECASE)
+            m = re.search(
+                r"(?:Tomador|Pagador|Cliente)\s*[:\-]?\s*([^\n\r\|;]+?)(?=\s*Remetente|\s*Destinat|\s*Informa|\s*Volume|\s*CNPJ|\s*$)",
+                txt,
+                re.IGNORECASE,
+            )
             if m:
                 tomador = m.group(1).strip()
         if not remetente:
-            m = re.search(r"Remetente\s*[:\-]?\s*([^\n\r\|;]+?)(?=\s*Destinat|\s*End|\s*Cidade|\s*CNPJ|\s*$)", txt, re.IGNORECASE)
+            m = re.search(
+                r"Remetente\s*[:\-]?\s*([^\n\r\|;]+?)(?=\s*Destinat|\s*End|\s*Cidade|\s*CNPJ|\s*$)",
+                txt,
+                re.IGNORECASE,
+            )
             if m:
                 remetente = m.group(1).strip()
         if not destinatario:
-            m = re.search(r"Destinat[aá]rio\s*[:\-]?\s*([^\n\r\|;]+?)(?=\s*End|\s*Cidade|\s*CNPJ|\s*$)", txt, re.IGNORECASE)
+            m = re.search(
+                r"Destinat[aá]rio\s*[:\-]?\s*([^\n\r\|;]+?)(?=\s*End|\s*Cidade|\s*CNPJ|\s*$)",
+                txt,
+                re.IGNORECASE,
+            )
             if m:
                 destinatario = m.group(1).strip()
 
@@ -255,8 +296,14 @@ class FractionService:
                         continue
                     action, method, campos = prep
                     req_func = self.session.post if method == "post" else self.session.get
-                    resp = req_func(action, data=campos if method == "post" else None, params=campos if method == "get" else None, headers={"Referer": pagina.url}, timeout=15)
-                    
+                    resp = req_func(
+                        action,
+                        data=campos if method == "post" else None,
+                        params=campos if method == "get" else None,
+                        headers={"Referer": pagina.url},
+                        timeout=15,
+                    )
+
                     if "login" in resp.url.lower():
                         return cte_limpo, "COOKIE_EXPIRADO", {}
 
@@ -265,22 +312,46 @@ class FractionService:
                     tomador, rem, dest, docs = self.extrair_dados_tabela(soup_resp, txt, cte_limpo)
 
                     if tomador and len(tomador) > 2:
-                        docs_all = sorted({re.sub(r"\D", "", d) for d in re.findall(r"(?:CNPJ|CPF|IE)\s*[:\-]?\s*([\d\.\/-]{5,25})", txt, re.IGNORECASE) if len(re.sub(r"\D", "", d)) >= 5} | set(docs))
-                        chaves_55 = [ch for ch in re.findall(r"\b\d{44}\b", txt) if ch[20:22] == "55"]
-                        dactes_57 = [ch for ch in re.findall(r"\b\d{44}\b", txt) if ch[20:22] == "57"]
-                        nfs = list(dict.fromkeys(re.findall(r"NF\s*:\s*(\d{1,9})", txt, re.IGNORECASE) + [ch[25:34].lstrip("0") for ch in chaves_55]))
+                        docs_all = sorted(
+                            {
+                                re.sub(r"\D", "", d)
+                                for d in re.findall(
+                                    r"(?:CNPJ|CPF|IE)\s*[:\-]?\s*([\d\.\/-]{5,25})",
+                                    txt,
+                                    re.IGNORECASE,
+                                )
+                                if len(re.sub(r"\D", "", d)) >= 5
+                            }
+                            | set(docs)
+                        )
+                        chaves_55 = [
+                            ch for ch in re.findall(r"\b\d{44}\b", txt) if ch[20:22] == "55"
+                        ]
+                        dactes_57 = [
+                            ch for ch in re.findall(r"\b\d{44}\b", txt) if ch[20:22] == "57"
+                        ]
+                        nfs = list(
+                            dict.fromkeys(
+                                re.findall(r"NF\s*:\s*(\d{1,9})", txt, re.IGNORECASE)
+                                + [ch[25:34].lstrip("0") for ch in chaves_55]
+                            )
+                        )
 
-                        return cte_limpo, tomador, {
-                            "cte": cte_limpo,
-                            "tomador": tomador,
-                            "remetente": rem,
-                            "destinatario": dest,
-                            "cnpjs": docs_all,
-                            "chaves_nfe": chaves_55,
-                            "dacte": dactes_57[0] if dactes_57 else "",
-                            "numeros_notas": nfs,
-                            "texto_completo": txt,
-                        }
+                        return (
+                            cte_limpo,
+                            tomador,
+                            {
+                                "cte": cte_limpo,
+                                "tomador": tomador,
+                                "remetente": rem,
+                                "destinatario": dest,
+                                "cnpjs": docs_all,
+                                "chaves_nfe": chaves_55,
+                                "dacte": dactes_57[0] if dactes_57 else "",
+                                "numeros_notas": nfs,
+                                "texto_completo": txt,
+                            },
+                        )
             except Exception:
                 continue
 

@@ -72,11 +72,10 @@ def registrar_execucao(nome: str):
 
 
 # Importações de bibliotecas opcionais e configuração de OCR Portátil
+import contextlib
 keyring: Any = None
-try:
+with contextlib.suppress(ImportError):
     import keyring
-except ImportError:
-    pass
 
 
 def obter_credencial(nome: str, padrao: str = "") -> str:
@@ -87,13 +86,11 @@ def obter_credencial(nome: str, padrao: str = "") -> str:
     except Exception:  # noqa: BLE001
         return padrao
 
-
 def salvar_credencial(nome: str, valor: str) -> None:
     if keyring is None:
         return
-    try:
+    with contextlib.suppress(Exception):
         keyring.set_password("ZendeskApp", nome, valor)
-    except Exception:  # noqa: BLE001, S110
         pass
 
 
@@ -710,6 +707,7 @@ def _preparar_formulario_fraction(form: Any, page_url: str, cte_code: str):
             if tipo in ("submit", "button"):  # noqa: SIM102
                 if re.search(
                     r"cancel|voltar|limpar|sair", nome + " " + val, re.IGNORECASE
+# sourcery skip: merge-nested-ifs
                 ):
                     continue
             campos.append((nome, val))
@@ -1062,20 +1060,19 @@ def extrair_numero_termo_pdf(texto_pdf: str, nome_anexo: str) -> str | None:
 
 
 @registrar_execucao("Extração de texto do PDF")
+@registrar_execucao("Extração de texto do PDF")
 def extrair_texto_pdf(pdf_bytes: bytes) -> tuple[str, str]:
-    return extrair_texto_pdf_servico(pdf_bytes)
-
+    texto = ""
     if HAS_PDFPLUMBER:
         try:
             with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
                 for page in pdf.pages:
                     extracted = page.extract_text(layout=True)
                     if extracted:
-                        texto += extracted + "\n"  # noqa: F821
+                        texto += extracted + "\n"
             texto = texto.strip()
         except Exception as e:  # noqa: BLE001
             print(f"[Aviso] pdfplumber falhou: {e}. Tentando pypdf...")
-
     if not texto:
         try:
             pdf_file = io.BytesIO(pdf_bytes)
@@ -1087,7 +1084,6 @@ def extrair_texto_pdf(pdf_bytes: bytes) -> tuple[str, str]:
             texto = texto.strip()
         except Exception:  # noqa: BLE001, S110
             pass
-
     if not texto and HAS_OCR:
         try:
             images = convert_from_bytes(pdf_bytes)
@@ -1098,12 +1094,9 @@ def extrair_texto_pdf(pdf_bytes: bytes) -> tuple[str, str]:
             texto = texto.strip()
         except Exception as e:  # noqa: BLE001
             print(f"[Aviso] Falha no OCR: {e}")
-
     if not texto:
         return "", "PDF sem texto extraível mesmo com OCR."
-
     return texto, "OK"
-
 
 def sanitizar_celula_excel(val):
     val_str = str(val or "").strip()
@@ -1212,9 +1205,7 @@ def salvar_planilha_multisheets(
         else (cabecalho.index("TOMADORES") if "TOMADORES" in cabecalho else -1)
     )
 
-    linhas_ok, linhas_faltando = [], []
-    
-
+    linhas_ok, linhas_faltando = [], []    
     for row in linhas_totais:
         row_list = list(row)
         is_ok, motivo = e_linha_valida_ok(cabecalho, row_list)
@@ -2371,43 +2362,11 @@ def _extrair_regras_ms(txt_pdf: str, nome_anexo: str, nfe_map: dict):
 
     # 4. Vencimento
     vencimento = "Não informado"
-    if is_dar:
-        m_nr = re.search(
-            r"NÃO\s*RECEBER\s*APÓS\s*[:|-]?\s*(\d{2}/\d{2}/\d{4})",
-            txt_pdf,
-            re.IGNORECASE,
-        )
-        if m_nr:
-            vencimento = m_nr.group(1).strip()
-        else:
-            m_venc = re.search(
-                r"(?:02\s*-\s*VENCIMENTO|Data\s+de\s+Vencimento)[\s\n\r:]*(\d{2}/\d{2}/\d{4})",
-                txt_pdf,
-                re.IGNORECASE,
-            )
-            if m_venc:
-                vencimento = m_venc.group(1).strip()
-
-    vencimento = padronizar_data_ddmmyyyy(vencimento)
 
     # 5. Valor Total
     valor = "Não informado"
-    if is_dar:
-        m_val = re.search(
-            r"(?:10\s*-\s*TOTAL|TOTAL\s*A\s*RECOLHER)\s*[\n\r:]*\s*(?:R\$\s*)?(\d{1,3}(?:\.\d{3})*,\d{2})",
-            txt_pdf,
-            re.IGNORECASE,
-        )
-        if m_val:
-            valor = m_val.group(1).strip()
-        else:
-            vals = re.findall(
-                r"TOTAL\s*[\n\r:]*\s*(?:R\$\s*)?(\d{1,3}(?:\.\d{3})*,\d{2})",
-                txt_pdf,
-                re.IGNORECASE,
-            )
-            if vals:
-                valor = vals[0].strip()
+
+
 
     # 6. Notas Fiscais
     notas_guia = []
@@ -2585,7 +2544,7 @@ class JanelaConfiguracoes(ctk.CTkToplevel):
     ):
         super().__init__(parent)
         self.gerenciador_layouts = gerenciador_layouts
-               self.app_gui = app_gui
+        self.app_gui = app_gui
 
         self.title(
             "⚙️ Painel de Aprendizado de Layouts Lado a Lado (Guia DAR + Termo/Nota)"
@@ -2904,7 +2863,7 @@ class JanelaConfiguracoes(ctk.CTkToplevel):
 
         self.atualizar_tabela_layouts()
 
-        def carregar_pdf_exemplo(self, num_pdf: int):
+    def carregar_pdf_exemplo(self, num_pdf: int):
         arq = filedialog.askopenfilename(
             title=f"Selecione o PDF {num_pdf}", filetypes=[("PDF", "*.pdf")]
         )
@@ -4181,7 +4140,7 @@ class ZendeskAppGUI:
         if hasattr(self, "janela") and self.janela:
             self.janela.after(0, _task_ui)
 
-            def _ordenar_tabela(self, coluna, reverso):
+    def _ordenar_tabela(self, coluna, reverso):
         dados = [(self.tabela.set(k, coluna), k) for k in self.tabela.get_children("")]
         dados.sort(reverse=reverso)
         for index, (val, k) in enumerate(dados):
@@ -6247,7 +6206,8 @@ class ZendeskAppGUI:
 
         try:
             caminho_gerado = salvar_planilha_multisheets(
-               
+                caminho_csv, cabecalho, linhas_csv
+            )
             self.atualizar_tabela_gui()
             self.log(
                 f"[🏆] Relatório Gerado com {len(linhas_csv)} linha(s) em: {caminho_gerado}"
@@ -6309,7 +6269,9 @@ class ZendeskAppGUI:
 
         try:
             caminho_gerado = salvar_planilha_multisheets(
-               
+                caminho_csv, cabecalho, linhas
+            )
+            self.log(
                 f"[Zendesk] Relatório de Tomadores atualizado e salvo: {caminho_gerado}"
             )
         except Exception as e:
@@ -6370,8 +6332,7 @@ class ZendeskAppGUI:
         if linhas_unificadas and cabecalho:
             caminho_gerado = salvar_planilha_multisheets(
                 caminho_saida, cabecalho, linhas_unificadas, 
-            )
-           
+            )         
             self.log(f"[🏆] Salvo: {caminho_gerado}")
             self.exibir_mensagem(
                 "info",
@@ -7394,9 +7355,8 @@ class ZendeskAppGUI:
 
         try:
             caminho_gerado = salvar_planilha_multisheets(
-               
+                caminho_final, cabecalho, linhas
             )
-           
             self.log(f"[🏆] Relatório Final Salvo em: {caminho_gerado}")
             self.atualizar_progresso(100, 100)
         except Exception as e:

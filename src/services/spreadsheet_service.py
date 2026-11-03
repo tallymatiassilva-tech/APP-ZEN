@@ -31,16 +31,8 @@ def sanitizar_celula_excel(val: object) -> str:
 
 
 def e_linha_valida_ok(cabecalho: list, row: list) -> tuple[bool, str]:
-    idx_status = (
-        cabecalho.index("STATUS CONFERÊNCIA")
-        if "STATUS CONFERÊNCIA" in cabecalho
-        else -1
-    )
-    status = (
-        str(row[idx_status]).strip()
-        if idx_status != -1 and idx_status < len(row)
-        else "OK"
-    )
+    idx_status = cabecalho.index("STATUS CONFERÊNCIA") if "STATUS CONFERÊNCIA" in cabecalho else -1
+    status = str(row[idx_status]).strip() if idx_status != -1 and idx_status < len(row) else "OK"
     status_normalizado = status.upper()
 
     if (
@@ -64,8 +56,7 @@ def e_linha_valida_ok(cabecalho: list, row: list) -> tuple[bool, str]:
         (
             nome
             for nome in cabecalho
-            if "CÓDIGO BARRAS" in str(nome).upper()
-            and "ORIGINAL" not in str(nome).upper()
+            if "CÓDIGO BARRAS" in str(nome).upper() and "ORIGINAL" not in str(nome).upper()
         ),
         None,
     )
@@ -144,17 +135,13 @@ class SpreadsheetService:
 
                 for cabecalho_aba, linhas_aba in dados_abas:
                     mapa_colunas = {
-                        nome: indice
-                        for indice, nome in enumerate(cabecalho_aba)
-                        if nome
+                        nome: indice for indice, nome in enumerate(cabecalho_aba) if nome
                     }
                     for linha_aba in linhas_aba:
                         linha_alinhada = [None] * len(cabecalho)
                         for indice, nome in enumerate(cabecalho):
                             indice_origem = mapa_colunas.get(nome)
-                            if indice_origem is not None and indice_origem < len(
-                                linha_aba
-                            ):
+                            if indice_origem is not None and indice_origem < len(linha_aba):
                                 linha_alinhada[indice] = linha_aba[indice_origem]
                         linhas.append(tuple(linha_alinhada))
 
@@ -168,9 +155,7 @@ class SpreadsheetService:
                     "DACTE (57)",
                 }
                 indices_identidade = [
-                    idx
-                    for idx, nome in enumerate(cabecalho)
-                    if nome in nomes_identidade
+                    idx for idx, nome in enumerate(cabecalho) if nome in nomes_identidade
                 ]
                 linhas_unicas, identidades_vistas = [], set()
                 for linha in linhas:
@@ -180,9 +165,7 @@ class SpreadsheetService:
                         if i < len(linha)
                     )
                     identidade_completa = (
-                        identidade
-                        if any(identidade)
-                        else tuple(str(v or "") for v in linha)
+                        identidade if any(identidade) else tuple(str(v or "") for v in linha)
                     )
                     if identidade_completa not in identidades_vistas:
                         identidades_vistas.add(identidade_completa)
@@ -263,17 +246,13 @@ class SpreadsheetService:
                 "TICKET": get_val("TICKET"),
                 "STATUS CONFERÊNCIA": get_val("STATUS CONFERÊNCIA") or "OK",
                 "DATA": padronizar_data_ddmmyyyy(get_val("DATA")),
-                "VENCIMENTO": padronizar_data_ddmmyyyy(get_val("VENCIMENTO"))
-                or "Não informado",
+                "VENCIMENTO": padronizar_data_ddmmyyyy(get_val("VENCIMENTO")) or "Não informado",
                 "VALOR": get_val("VALOR") or "Não informado",
-                "CTE / REMESSA": get_val("CTE / REMESSA")
-                or get_val("CTE")
-                or "Sem CTE",
+                "CTE / REMESSA": get_val("CTE / REMESSA") or get_val("CTE") or "Sem CTE",
                 "CHAVE ARQUIVO": get_val("CHAVE ARQUIVO") or "Sem Arquivo Válido",
                 "DACTE": get_val("DACTE") or "Sem DACTE",
                 "NÚMERO ARQUIVO": get_val("NÚMERO ARQUIVO") or "Sem Número",
-                "CODIGO BARRAS ORIGINAL": get_val("CODIGO BARRAS ORIGINAL")
-                or "Sem Código",
+                "CODIGO BARRAS ORIGINAL": get_val("CODIGO BARRAS ORIGINAL") or "Sem Código",
                 "CODIGO BARRAS": get_val("CODIGO BARRAS") or "Sem Código",
                 "TOMADOR": get_val("TOMADOR") or "Aguardando Conciliação",
                 "DATA PROCESSAMENTO": get_val("DATA PROCESSAMENTO")
@@ -356,14 +335,10 @@ class SpreadsheetService:
             return caminho_csv
 
         caminho_xlsx = (
-            caminho_arquivo
-            if caminho_arquivo.endswith(".xlsx")
-            else f"{caminho_arquivo}.xlsx"
+            caminho_arquivo if caminho_arquivo.endswith(".xlsx") else f"{caminho_arquivo}.xlsx"
         )
         wb = openpyxl.Workbook()
-        fill_destaque = PatternFill(
-            start_color="FDE9D9", end_color="FDE9D9", fill_type="solid"
-        )
+        fill_destaque = PatternFill(start_color="FDE9D9", end_color="FDE9D9", fill_type="solid")
         font_destaque = Font(color="7A4B1F", bold=False)
 
         def add_aba(ws, linhas_dados):
@@ -378,10 +353,7 @@ class SpreadsheetService:
                 ws.append(r)
 
                 # USA A SUA FUNÇÃO PARA DESTACAR VENCIDOS E INCOMPLETOS
-                if (
-                    e_registro_vencido(r, cabecalho)
-                    or not e_linha_valida_ok(cabecalho, r)[0]
-                ):
+                if e_registro_vencido(r, cabecalho) or not e_linha_valida_ok(cabecalho, r)[0]:
                     for col_idx in [
                         cabecalho.index("VENCIMENTO") + 1,
                         cabecalho.index("VALOR (R$)") + 1,
