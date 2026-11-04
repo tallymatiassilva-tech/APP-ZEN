@@ -3,7 +3,7 @@ from src.services.document_classifier import (
     e_dar_documento,
     e_termo_documento,
 )
-from src.services.uf_rules import separar_guias_ap, validar_chaves_ap
+from src.app_legacy import separar_guias_ap, validar_chaves_ap
 from src.utils.text_mono import (
     formatar_numero_arquivo,
     normalizar_valor_monetario,
