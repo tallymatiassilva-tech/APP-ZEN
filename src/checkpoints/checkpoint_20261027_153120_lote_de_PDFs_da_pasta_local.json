@@ -1,0 +1,461 @@
+{
+  "motivo": "lote de PDFs da pasta local",
+  "salvo_em": "2026-10-27T15:31:20",
+  "dados_em_memoria": [
+    {
+      "TERMO": "Não localizado",
+      "UF": "GERAL",
+      "CPF/CNPJ DA GUIA": "",
+      "TICKET": "Local",
+      "STATUS CONFERÊNCIA": "INCOMPLETO: Sem Termo",
+      "DATA": "27/10/2026",
+      "VENCIMENTO": "30/09/2026",
+      "VALOR": "32,45",
+      "CTE": "Sem CTE",
+      "CHAVE ARQUIVO": "Sem Arquivo Válido",
+      "DACTE": "Sem DACTE",
+      "NÚMERO ARQUIVO": "Sem Número",
+      "CODIGO BARRAS ORIGINAL": "=\"85640000000-1 32450186262-1 78304864883-7 81158000000-8\"",
+      "CODIGO BARRAS": "=\"85640000000324501862627830486488381158000000\"",
+      "TOMADOR": "Aguardando Conciliação",
+      "DATA PROCESSAMENTO": "27/10/2026 15:31:20",
+      "EMITENTE - NOME/RAZÃO SOCIAL": "",
+      "EMITENTE - CPF/CNPJ": "",
+      "EMITENTE - IE": "",
+      "DESTINATÁRIO - NOME/RAZÃO SOCIAL": "",
+      "DESTINATÁRIO - CPF/CNPJ": "",
+      "DESTINATÁRIO - IE": ""
+    },
+    {
+      "TERMO": "133905/2026",
+      "UF": "AC",
+      "CPF/CNPJ DA GUIA": "",
+      "TICKET": "Local",
+      "STATUS CONFERÊNCIA": "OK",
+      "DATA": "27/10/2026",
+      "VENCIMENTO": "31/10/2026",
+      "VALOR": "270,00",
+      "CTE": "Sem CTE",
+      "CHAVE ARQUIVO": "=\"31260911389858000106550080000892171157365591\"",
+      "DACTE": "Sem DACTE",
+      "NÚMERO ARQUIVO": "000089217",
+      "CODIGO BARRAS ORIGINAL": "=\"858300000025700000012631041001822060093411000004\"",
+      "CODIGO BARRAS": "=\"858300000025700000012631041001822060093411000004\"",
+      "TOMADOR": "Aguardando Conciliação",
+      "DATA PROCESSAMENTO": "27/10/2026 15:31:20",
+      "EMITENTE - NOME/RAZÃO SOCIAL": "",
+      "EMITENTE - CPF/CNPJ": "",
+      "EMITENTE - IE": "",
+      "DESTINATÁRIO - NOME/RAZÃO SOCIAL": "",
+      "DESTINATÁRIO - CPF/CNPJ": "",
+      "DESTINATÁRIO - IE": ""
+    },
+    {
+      "TERMO": "2931389",
+      "UF": "AL",
+      "CPF/CNPJ DA GUIA": "34261964000105",
+      "TICKET": "Local",
+      "STATUS CONFERÊNCIA": "OK",
+      "DATA": "27/10/2026",
+      "VENCIMENTO": "30/10/2026",
+      "VALOR": "3,50",
+      "CTE": "Sem CTE",
+      "CHAVE ARQUIVO": "=\"42260934261964000105550020002278461049905787\"",
+      "DACTE": "Sem DACTE",
+      "NÚMERO ARQUIVO": "227846",
+      "CODIGO BARRAS ORIGINAL": "=\"85860000000 4 03500002202 3 61030000000 1 19467127419 2\"",
+      "CODIGO BARRAS": "=\"85860000000035000022026103000000019467127419\"",
+      "TOMADOR": "Aguardando Conciliação",
+      "DATA PROCESSAMENTO": "27/10/2026 15:31:20",
+      "EMITENTE - NOME/RAZÃO SOCIAL": "Verdi Natural Cosmeticos LTDA",
+      "EMITENTE - CPF/CNPJ": "34261964000105",
+      "EMITENTE - IE": "",
+      "DESTINATÁRIO - NOME/RAZÃO SOCIAL": "Altina Aparecida Araujo de Almeida",
+      "DESTINATÁRIO - CPF/CNPJ": "08240174477",
+      "DESTINATÁRIO - IE": ""
+    },
+    {
+      "TERMO": "161026",
+      "UF": "AP",
+      "CPF/CNPJ DA GUIA": "",
+      "TICKET": "Local",
+      "STATUS CONFERÊNCIA": "INCOMPLETO: Chave da NF-e não localizada",
+      "DATA": "27/10/2026",
+      "VENCIMENTO": "20/10/2026",
+      "VALOR": "635,32",
+      "CTE": "Sem CTE",
+      "CHAVE ARQUIVO": "=\"35261008606542000114550040010122351133270192\"",
+      "DACTE": "Sem DACTE",
+      "NÚMERO ARQUIVO": "001012235",
+      "CODIGO BARRAS ORIGINAL": "=\"856000000062353204632023610203005158052014150008\"",
+      "CODIGO BARRAS": "=\"85600000006353204632026102030051505201415000\"",
+      "TOMADOR": "Aguardando Conciliação",
+      "DATA PROCESSAMENTO": "27/10/2026 15:31:20",
+      "EMITENTE - NOME/RAZÃO SOCIAL": "",
+      "EMITENTE - CPF/CNPJ": "",
+      "EMITENTE - IE": "",
+      "DESTINATÁRIO - NOME/RAZÃO SOCIAL": "",
+      "DESTINATÁRIO - CPF/CNPJ": "",
+      "DESTINATÁRIO - IE": ""
+    },
+    {
+      "TERMO": "201026",
+      "UF": "AP",
+      "CPF/CNPJ DA GUIA": "",
+      "TICKET": "Local",
+      "STATUS CONFERÊNCIA": "INCOMPLETO: Chave da NF-e não localizada",
+      "DATA": "27/10/2026",
+      "VENCIMENTO": "26/10/2026",
+      "VALOR": "402,77",
+      "CTE": "Sem CTE",
+      "CHAVE ARQUIVO": "=\"35260959818763000197550010000243681622552286\"",
+      "DACTE": "Sem DACTE",
+      "NÚMERO ARQUIVO": "000024368",
+      "CODIGO BARRAS ORIGINAL": "=\"856400000043027704632028610263005155305914150001\"",
+      "CODIGO BARRAS": "=\"85640000004027704632026102630051530591415000\"",
+      "TOMADOR": "Aguardando Conciliação",
+      "DATA PROCESSAMENTO": "27/10/2026 15:31:20",
+      "EMITENTE - NOME/RAZÃO SOCIAL": "",
+      "EMITENTE - CPF/CNPJ": "",
+      "EMITENTE - IE": "",
+      "DESTINATÁRIO - NOME/RAZÃO SOCIAL": "",
+      "DESTINATÁRIO - CPF/CNPJ": "",
+      "DESTINATÁRIO - IE": ""
+    },
+    {
+      "TERMO": "6530394572218",
+      "UF": "AM",
+      "CPF/CNPJ DA GUIA": "000020260407",
+      "TICKET": "Local",
+      "STATUS CONFERÊNCIA": "OK",
+      "DATA": "27/10/2026",
+      "VENCIMENTO": "13/07/2026",
+      "VALOR": "16,54",
+      "CTE": "Sem CTE",
+      "CHAVE ARQUIVO": "=\"31260454765132000133550010005674721728251036\"",
+      "DACTE": "Sem DACTE",
+      "NÚMERO ARQUIVO": "000567472",
+      "CODIGO BARRAS ORIGINAL": "=\"856900000006165400042025607136530393457221813126\"",
+      "CODIGO BARRAS": "=\"85690000000165400042026071365303945722181312\"",
+      "TOMADOR": "Aguardando Conciliação",
+      "DATA PROCESSAMENTO": "27/10/2026 15:31:20",
+      "EMITENTE - NOME/RAZÃO SOCIAL": "",
+      "EMITENTE - CPF/CNPJ": "",
+      "EMITENTE - IE": "",
+      "DESTINATÁRIO - NOME/RAZÃO SOCIAL": "",
+      "DESTINATÁRIO - CPF/CNPJ": "",
+      "DESTINATÁRIO - IE": ""
+    },
+    {
+      "TERMO": "001009300",
+      "UF": "MS",
+      "CPF/CNPJ DA GUIA": "",
+      "TICKET": "Local",
+      "STATUS CONFERÊNCIA": "INCOMPLETO: Sem Valor",
+      "DATA": "27/10/2026",
+      "VENCIMENTO": "30/09/2026",
+      "VALOR": "Não informado",
+      "CTE": "Sem CTE",
+      "CHAVE ARQUIVO": "Sem Arquivo Válido",
+      "DACTE": "=\"50260804884082000488570000004307931004307930\"",
+      "NÚMERO ARQUIVO": "000430793",
+      "CODIGO BARRAS ORIGINAL": "=\"85620000002-9 15070012202-4 60930162385-4 12575200100-3\"",
+      "CODIGO BARRAS": "=\"85620000002150700122026093016238512575200100\"",
+      "TOMADOR": "Aguardando Conciliação",
+      "DATA PROCESSAMENTO": "27/10/2026 15:31:20",
+      "EMITENTE - NOME/RAZÃO SOCIAL": "",
+      "EMITENTE - CPF/CNPJ": "",
+      "EMITENTE - IE": "",
+      "DESTINATÁRIO - NOME/RAZÃO SOCIAL": "",
+      "DESTINATÁRIO - CPF/CNPJ": "",
+      "DESTINATÁRIO - IE": ""
+    }
+  ],
+  "memoria_termos": {
+    "Não localizado": {
+      "TICKET": [],
+      "UF": [
+        "GERAL"
+      ],
+      "CPF/CNPJ DA GUIA": [],
+      "DATA": [
+        "27/10/2026"
+      ],
+      "VENCIMENTO": [
+        "30/09/2026"
+      ],
+      "VALOR": [
+        "32,45"
+      ],
+      "CTE": [],
+      "CHAVE ARQUIVO": [],
+      "DACTE": [],
+      "NÚMERO ARQUIVO": [],
+      "CODIGO BARRAS ORIGINAL": [
+        "85640000000-1 32450186262-1 78304864883-7 81158000000-8"
+      ],
+      "CODIGO BARRAS": [
+        "85640000000324501862627830486488381158000000"
+      ],
+      "EMITENTE - NOME/RAZÃO SOCIAL": [],
+      "EMITENTE - CPF/CNPJ": [],
+      "EMITENTE - IE": [],
+      "DESTINATÁRIO - NOME/RAZÃO SOCIAL": [],
+      "DESTINATÁRIO - CPF/CNPJ": [],
+      "DESTINATÁRIO - IE": [],
+      "STATUS CONFERÊNCIA": "OK",
+      "DATA PROCESSAMENTO": "27/10/2026 15:31:20",
+      "TOMADOR": "Aguardando Conciliação"
+    },
+    "133905/2026": {
+      "TICKET": [],
+      "UF": [
+        "AC"
+      ],
+      "CPF/CNPJ DA GUIA": [],
+      "DATA": [
+        "27/10/2026"
+      ],
+      "VENCIMENTO": [
+        "31/10/2026"
+      ],
+      "VALOR": [
+        "270,00"
+      ],
+      "CTE": [],
+      "CHAVE ARQUIVO": [
+        "31260911389858000106550080000892171157365591"
+      ],
+      "DACTE": [],
+      "NÚMERO ARQUIVO": [
+        "000089217"
+      ],
+      "CODIGO BARRAS ORIGINAL": [
+        "858300000025700000012631041001822060093411000004"
+      ],
+      "CODIGO BARRAS": [
+        "858300000025700000012631041001822060093411000004"
+      ],
+      "EMITENTE - NOME/RAZÃO SOCIAL": [],
+      "EMITENTE - CPF/CNPJ": [],
+      "EMITENTE - IE": [],
+      "DESTINATÁRIO - NOME/RAZÃO SOCIAL": [],
+      "DESTINATÁRIO - CPF/CNPJ": [],
+      "DESTINATÁRIO - IE": [],
+      "STATUS CONFERÊNCIA": "OK",
+      "DATA PROCESSAMENTO": "27/10/2026 15:31:20",
+      "TOMADOR": "Aguardando Conciliação"
+    },
+    "2931389": {
+      "TICKET": [],
+      "UF": [
+        "AL"
+      ],
+      "CPF/CNPJ DA GUIA": [
+        "34261964000105"
+      ],
+      "DATA": [
+        "27/10/2026"
+      ],
+      "VENCIMENTO": [
+        "30/10/2026"
+      ],
+      "VALOR": [
+        "3,50"
+      ],
+      "CTE": [],
+      "CHAVE ARQUIVO": [
+        "42260934261964000105550020002278461049905787"
+      ],
+      "DACTE": [],
+      "NÚMERO ARQUIVO": [
+        "000227846"
+      ],
+      "CODIGO BARRAS ORIGINAL": [
+        "85860000000 4 03500002202 3 61030000000 1 19467127419 2",
+        "Sem Codigo"
+      ],
+      "CODIGO BARRAS": [
+        "85860000000035000022026103000000019467127419",
+        "Sem Codigo"
+      ],
+      "EMITENTE - NOME/RAZÃO SOCIAL": [
+        "Verdi Natural Cosmeticos LTDA"
+      ],
+      "EMITENTE - CPF/CNPJ": [
+        "34261964000105"
+      ],
+      "EMITENTE - IE": [],
+      "DESTINATÁRIO - NOME/RAZÃO SOCIAL": [
+        "Altina Aparecida Araujo de Almeida"
+      ],
+      "DESTINATÁRIO - CPF/CNPJ": [
+        "08240174477"
+      ],
+      "DESTINATÁRIO - IE": [],
+      "STATUS CONFERÊNCIA": "OK",
+      "DATA PROCESSAMENTO": "27/10/2026 15:31:20",
+      "TOMADOR": "Aguardando Conciliação"
+    },
+    "161026": {
+      "TICKET": [],
+      "UF": [
+        "AP"
+      ],
+      "CPF/CNPJ DA GUIA": [],
+      "DATA": [
+        "27/10/2026"
+      ],
+      "VENCIMENTO": [
+        "20/10/2026"
+      ],
+      "VALOR": [
+        "635,32"
+      ],
+      "CTE": [],
+      "CHAVE ARQUIVO": [
+        "35261008606542000114550040010122351133270192"
+      ],
+      "DACTE": [],
+      "NÚMERO ARQUIVO": [
+        "001012235"
+      ],
+      "CODIGO BARRAS ORIGINAL": [
+        "856000000062353204632023610203005158052014150008"
+      ],
+      "CODIGO BARRAS": [
+        "85600000006353204632026102030051505201415000"
+      ],
+      "EMITENTE - NOME/RAZÃO SOCIAL": [],
+      "EMITENTE - CPF/CNPJ": [],
+      "EMITENTE - IE": [],
+      "DESTINATÁRIO - NOME/RAZÃO SOCIAL": [],
+      "DESTINATÁRIO - CPF/CNPJ": [],
+      "DESTINATÁRIO - IE": [],
+      "STATUS CONFERÊNCIA": "INCOMPLETO: Chave da NF-e não localizada",
+      "DATA PROCESSAMENTO": "27/10/2026 15:31:20",
+      "TOMADOR": "Aguardando Conciliação"
+    },
+    "201026": {
+      "TICKET": [],
+      "UF": [
+        "AP"
+      ],
+      "CPF/CNPJ DA GUIA": [],
+      "DATA": [
+        "27/10/2026"
+      ],
+      "VENCIMENTO": [
+        "26/10/2026"
+      ],
+      "VALOR": [
+        "402,77"
+      ],
+      "CTE": [],
+      "CHAVE ARQUIVO": [
+        "35260959818763000197550010000243681622552286"
+      ],
+      "DACTE": [],
+      "NÚMERO ARQUIVO": [
+        "000024368"
+      ],
+      "CODIGO BARRAS ORIGINAL": [
+        "856400000043027704632028610263005155305914150001"
+      ],
+      "CODIGO BARRAS": [
+        "85640000004027704632026102630051530591415000"
+      ],
+      "EMITENTE - NOME/RAZÃO SOCIAL": [],
+      "EMITENTE - CPF/CNPJ": [],
+      "EMITENTE - IE": [],
+      "DESTINATÁRIO - NOME/RAZÃO SOCIAL": [],
+      "DESTINATÁRIO - CPF/CNPJ": [],
+      "DESTINATÁRIO - IE": [],
+      "STATUS CONFERÊNCIA": "INCOMPLETO: Chave da NF-e não localizada",
+      "DATA PROCESSAMENTO": "27/10/2026 15:31:20",
+      "TOMADOR": "Aguardando Conciliação"
+    },
+    "6530394572218": {
+      "TICKET": [],
+      "UF": [
+        "AM"
+      ],
+      "CPF/CNPJ DA GUIA": [
+        "000020260407"
+      ],
+      "DATA": [
+        "27/10/2026"
+      ],
+      "VENCIMENTO": [
+        "13/07/2026"
+      ],
+      "VALOR": [
+        "16,54"
+      ],
+      "CTE": [],
+      "CHAVE ARQUIVO": [
+        "31260454765132000133550010005674721728251036"
+      ],
+      "DACTE": [],
+      "NÚMERO ARQUIVO": [
+        "000567472"
+      ],
+      "CODIGO BARRAS ORIGINAL": [
+        "856900000006165400042025607136530393457221813126"
+      ],
+      "CODIGO BARRAS": [
+        "85690000000165400042026071365303945722181312"
+      ],
+      "EMITENTE - NOME/RAZÃO SOCIAL": [],
+      "EMITENTE - CPF/CNPJ": [],
+      "EMITENTE - IE": [],
+      "DESTINATÁRIO - NOME/RAZÃO SOCIAL": [],
+      "DESTINATÁRIO - CPF/CNPJ": [],
+      "DESTINATÁRIO - IE": [],
+      "STATUS CONFERÊNCIA": "OK",
+      "DATA PROCESSAMENTO": "27/10/2026 15:31:20",
+      "TOMADOR": "Aguardando Conciliação"
+    },
+    "001009300": {
+      "TICKET": [],
+      "UF": [
+        "MS"
+      ],
+      "CPF/CNPJ DA GUIA": [],
+      "DATA": [
+        "27/10/2026"
+      ],
+      "VENCIMENTO": [
+        "30/09/2026"
+      ],
+      "VALOR": [],
+      "CTE": [],
+      "CHAVE ARQUIVO": [],
+      "DACTE": [
+        "50260804884082000488570000004307931004307930"
+      ],
+      "NÚMERO ARQUIVO": [
+        "000430793"
+      ],
+      "CODIGO BARRAS ORIGINAL": [
+        "85620000002-9 15070012202-4 60930162385-4 12575200100-3",
+        "820261731928866244678725253096624851121515151542"
+      ],
+      "CODIGO BARRAS": [
+        "85620000002150700122026093016238512575200100",
+        "82026173192866244678722530966248512151515154"
+      ],
+      "EMITENTE - NOME/RAZÃO SOCIAL": [],
+      "EMITENTE - CPF/CNPJ": [],
+      "EMITENTE - IE": [],
+      "DESTINATÁRIO - NOME/RAZÃO SOCIAL": [],
+      "DESTINATÁRIO - CPF/CNPJ": [],
+      "DESTINATÁRIO - IE": [],
+      "STATUS CONFERÊNCIA": "OK",
+      "DATA PROCESSAMENTO": "27/10/2026 15:31:20",
+      "TOMADOR": "Aguardando Conciliação"
+    }
+  },
+  "tickets_processados": {},
+  "ctes_consultados_cache": {}
+}

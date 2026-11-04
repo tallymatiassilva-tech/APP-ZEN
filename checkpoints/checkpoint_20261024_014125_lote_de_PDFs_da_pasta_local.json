@@ -1,0 +1,85 @@
+{
+  "motivo": "lote de PDFs da pasta local",
+  "salvo_em": "2026-10-24T01:41:25",
+  "dados_em_memoria": [
+    {
+      "TERMO": "2931389",
+      "UF": "AL",
+      "CPF/CNPJ DA GUIA": "34261964000105",
+      "TICKET": "Local",
+      "STATUS CONFERÊNCIA": "OK",
+      "DATA": "24/10/2026",
+      "VENCIMENTO": "30/10/2026",
+      "VALOR": "3,50",
+      "CTE": "Sem CTE",
+      "CHAVE ARQUIVO": "=\"42260934261964000105550020002278461049905787\"",
+      "DACTE": "Sem DACTE",
+      "NÚMERO ARQUIVO": "227846",
+      "CODIGO BARRAS ORIGINAL": "=\"85860000000 4 03500002202 3 61030000000 1 19467127419 2\"",
+      "CODIGO BARRAS": "=\"85860000000035000022026103000000019467127419\"",
+      "TOMADOR": "Aguardando Conciliação",
+      "DATA PROCESSAMENTO": "24/10/2026 01:41:25",
+      "EMITENTE - NOME/RAZÃO SOCIAL": "Verdi Natural Cosmeticos LTDA",
+      "EMITENTE - CPF/CNPJ": "34261964000105",
+      "EMITENTE - IE": "",
+      "DESTINATÁRIO - NOME/RAZÃO SOCIAL": "Altina Aparecida Araujo de Almeida",
+      "DESTINATÁRIO - CPF/CNPJ": "08240174477",
+      "DESTINATÁRIO - IE": ""
+    }
+  ],
+  "memoria_termos": {
+    "2931389": {
+      "TICKET": [],
+      "UF": [
+        "AL"
+      ],
+      "CPF/CNPJ DA GUIA": [
+        "34261964000105"
+      ],
+      "DATA": [
+        "24/10/2026"
+      ],
+      "VENCIMENTO": [
+        "30/10/2026"
+      ],
+      "VALOR": [
+        "3,50"
+      ],
+      "CTE": [],
+      "CHAVE ARQUIVO": [
+        "42260934261964000105550020002278461049905787"
+      ],
+      "DACTE": [],
+      "NÚMERO ARQUIVO": [
+        "000227846"
+      ],
+      "CODIGO BARRAS ORIGINAL": [
+        "85860000000 4 03500002202 3 61030000000 1 19467127419 2",
+        "Sem Codigo"
+      ],
+      "CODIGO BARRAS": [
+        "85860000000035000022026103000000019467127419",
+        "Sem Codigo"
+      ],
+      "EMITENTE - NOME/RAZÃO SOCIAL": [
+        "Verdi Natural Cosmeticos LTDA"
+      ],
+      "EMITENTE - CPF/CNPJ": [
+        "34261964000105"
+      ],
+      "EMITENTE - IE": [],
+      "DESTINATÁRIO - NOME/RAZÃO SOCIAL": [
+        "Altina Aparecida Araujo de Almeida"
+      ],
+      "DESTINATÁRIO - CPF/CNPJ": [
+        "08240174477"
+      ],
+      "DESTINATÁRIO - IE": [],
+      "STATUS CONFERÊNCIA": "OK",
+      "DATA PROCESSAMENTO": "24/10/2026 01:41:25",
+      "TOMADOR": "Aguardando Conciliação"
+    }
+  },
+  "tickets_processados": {},
+  "ctes_consultados_cache": {}
+}

@@ -1,0 +1,14 @@
+C:\Program Files\Python314\python.exe: No module named src.main
+Debug memory block at address p=000002D8B95D1CD0: API 'I'
+    72057595706176256 bytes originally requested
+    The 7 pad bytes at p-7 are not all FORBIDDENBYTE (0xfd):
+        at p-7: 0x68 *** OUCH
+        at p-6: 0x90 *** OUCH
+        at p-5: 0x37 *** OUCH
+        at p-4: 0x00 *** OUCH
+        at p-3: 0x0f *** OUCH
+        at p-2: 0x00 *** OUCH
+        at p-1: 0x88 *** OUCH
+    Because memory is corrupted at the start, the count of bytes requested
+       may be bogus, and checking the trailing pad bytes may segfault.
+    The 8 pad bytes at tail=010002D91CCC8FD0 are 
