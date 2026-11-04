@@ -135,3 +135,94 @@ def _extrair_regras_ap(txt_pdf: str, nome_anexo: str, nfe_map: dict):
         valor,
         "AP",
     )
+
+# ===== BLOCO ADITIVO: leitura por origem e validacao =====
+import re as _re_ap
+from dataclasses import dataclass as _dataclass_ap
+
+MODELO_NFE = "55"
+MODELO_CTE = "57"
+
+
+def so_digitos(valor) -> str:
+    return _re_ap.sub(r"\D", "", str(valor or ""))
+
+
+def modelo(chave) -> str:
+    d = so_digitos(chave)
+    return d[20:22] if len(d) == 44 else ""
+
+
+@_dataclass_ap(frozen=True)
+class CodigoBarras:
+    original: str
+    digitos48: str
+    codigo44: str
+
+    @property
+    def blocos(self):
+        return self.original.split()
+
+
+def ler_codigo_barras(campo26) -> CodigoBarras:
+    original = str(campo26 or "").strip()
+    blocos = original.split()
+    if len(blocos) != 4:
+        raise ValueError(f"campo 26: esperados 4 blocos, encontrados {len(blocos)}")
+    limpos = [so_digitos(b) for b in blocos]
+    for i, b in enumerate(limpos, start=1):
+        if len(b) != 12:
+            raise ValueError(f"campo 26, bloco {i}: {len(b)} digitos, esperados 12")
+    return CodigoBarras(
+        original=original,
+        digitos48="".join(limpos),
+        codigo44="".join(b[:-1] for b in limpos),
+    )
+
+
+def _candidatos_44(texto) -> list:
+    achados = _re_ap.findall(r"\d[\d\s.\-/]{40,80}\d", str(texto or ""))
+    return [d for d in (so_digitos(b) for b in achados) if len(d) == 44]
+
+
+def ler_chave_nfe(campo24) -> str:
+    for d in _candidatos_44(campo24):
+        if modelo(d) == MODELO_NFE:
+            return d
+    return ""
+
+
+def conferir_origens(codigo: CodigoBarras, chave: str) -> None:
+    if len(codigo.codigo44) != 44:
+        raise ValueError(f"codigo de barras com {len(codigo.codigo44)} digitos")
+    if len(chave) != 44:
+        raise ValueError(f"chave NF-e com {len(chave)} digitos")
+    if codigo.codigo44 == chave:
+        raise ValueError("codigo de barras e chave NF-e iguais: leitura cruzada")
+    if modelo(chave) != MODELO_NFE:
+        raise ValueError(f"chave com modelo {modelo(chave)}, esperado {MODELO_NFE}")
+
+
+def validar_guia(campo05, chave_guia, remetente, destinatario, chaves_remessa):
+    ident = so_digitos(campo05)
+    if not ident:
+        return False, "INCOMPLETO: identificador ausente no campo 05"
+    papeis = {
+        "remetente": so_digitos(remetente),
+        "destinatario": so_digitos(destinatario),
+    }
+    papeis = {k: v for k, v in papeis.items() if v}
+    if not papeis:
+        return False, "INCOMPLETO: remetente e destinatario ausentes na remessa"
+    lado = next((k for k, v in papeis.items() if v == ident), None)
+    if not lado:
+        return False, "QUARENTENA: identificador nao consta na remessa"
+    chave = so_digitos(chave_guia)
+    if len(chave) != 44:
+        return False, "INCOMPLETO: chave da guia nao localizada no campo 24"
+    notas = {so_digitos(c) for c in chaves_remessa if modelo(c) == MODELO_NFE}
+    if not notas:
+        return False, "INCOMPLETO: remessa sem chave de modelo 55"
+    if chave not in notas:
+        return False, "QUARENTENA: chave da guia nao e de NF-e desta remessa"
+    return True, f"OK: identificador ({lado}) e chave NF-e conferem"
