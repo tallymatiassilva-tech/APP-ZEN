@@ -27,6 +27,7 @@ import requests
 from bs4 import BeautifulSoup
 from requests.adapters import HTTPAdapter
 
+from src.services.ufs.ap_validacao import resumo_nfe_map, validar_guia_ap
 from src.services.extraction_service import extrair_documento
 from src.services.pdf_service import (
     extrair_texto_pdf as extrair_texto_pdf_servico,
@@ -5142,6 +5143,12 @@ class ZendeskAppGUI:
                             uf_ext,
                         ) = extrair_documento("AP", bloco_guia, nome_anexo, nfe_map)
                         status_ap = validar_chaves_ap(pares_ext, nfe_map)
+                        try:
+                            _ok_ap, _mot_ap = validar_guia_ap(pares_ext, bloco_guia, nfe_map)
+                            _msg_ap = 'AP-guia: ok=%s motivo=%s nfe_map=%s' % (_ok_ap, _mot_ap, resumo_nfe_map(nfe_map))
+                            (logger.info(_msg_ap) if 'logger' in globals() else print(_msg_ap))
+                        except Exception as _e_ap:
+                            print('AP-guia: nao executou: %s' % _e_ap)
                         if historico_ap:
                             status_ap = _marcar_status_guia_ap_processada(status_ap)
                         pares_ap = pares_ext or [("Sem Arquivo Válido", "Sem Número")]
@@ -5551,6 +5558,12 @@ class ZendeskAppGUI:
                                     "AP", bloco_guia, nome_arquivo, nfe_map
                                 )
                                 status_ap = validar_chaves_ap(pares_ext, nfe_map)
+                                try:
+                                    _ok_ap, _mot_ap = validar_guia_ap(pares_ext, bloco_guia, nfe_map)
+                                    _msg_ap = 'AP-guia: ok=%s motivo=%s nfe_map=%s' % (_ok_ap, _mot_ap, resumo_nfe_map(nfe_map))
+                                    (logger.info(_msg_ap) if 'logger' in globals() else print(_msg_ap))
+                                except Exception as _e_ap:
+                                    print('AP-guia: nao executou: %s' % _e_ap)
                                 if historico_ap:
                                     status_ap = _marcar_status_guia_ap_processada(
                                         status_ap
