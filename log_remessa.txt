@@ -1,0 +1,146 @@
+[04/11/2026 14:54:03] [INFO] jadlog - Iniciando Automacao Total JadLog v1.3
+[OCR Portßtil] Tesseract carregado: C:\Users\talita.silva\Desktop\zendesk refatorado\Tesseract-OCR\tesseract.exe
+[OCR] Tesseract nÒo encontrado no ambiente local nem no PATH. OCR desabilitado.
+[04/11/2026 14:54:39] [IN═CIO] GeraþÒo de planilha via pasta local iniciado.
+[04/11/2026 14:54:39] [PROGRESSO] Lendo PDF 1 de 17: download (1).pdf...
+[04/11/2026 14:54:39] [IN═CIO] ExtraþÒo de texto do PDF iniciado.
+[04/11/2026 14:54:39] [IN═CIO] ExtraþÒo de texto do PDF iniciado.
+[04/11/2026 14:54:40] [SUCESSO] ExtraþÒo de texto do PDF concluÝdo com sucesso.
+[04/11/2026 14:54:40] [CONCLU═DO] Finalizada execuþÒo de ExtraþÒo de texto do PDF.
+[04/11/2026 14:54:40] [SUCESSO] ExtraþÒo de texto do PDF concluÝdo com sucesso.
+[04/11/2026 14:54:40] [CONCLU═DO] Finalizada execuþÒo de ExtraþÒo de texto do PDF.
+[04/11/2026 14:54:40] [PROGRESSO] Lendo PDF 2 de 17: download (2).pdf...
+[04/11/2026 14:54:40] [IN═CIO] ExtraþÒo de texto do PDF iniciado.
+[04/11/2026 14:54:40] [IN═CIO] ExtraþÒo de texto do PDF iniciado.
+[04/11/2026 14:54:40] [SUCESSO] ExtraþÒo de texto do PDF concluÝdo com sucesso.
+[04/11/2026 14:54:40] [CONCLU═DO] Finalizada execuþÒo de ExtraþÒo de texto do PDF.
+[04/11/2026 14:54:40] [SUCESSO] ExtraþÒo de texto do PDF concluÝdo com sucesso.
+[04/11/2026 14:54:40] [CONCLU═DO] Finalizada execuþÒo de ExtraþÒo de texto do PDF.
+[04/11/2026 14:54:40] [PROGRESSO] Lendo PDF 3 de 17: download (3).pdf...
+[04/11/2026 14:54:40] [IN═CIO] ExtraþÒo de texto do PDF iniciado.
+[04/11/2026 14:54:40] [IN═CIO] ExtraþÒo de texto do PDF iniciado.
+[04/11/2026 14:54:40] [SUCESSO] ExtraþÒo de texto do PDF concluÝdo com sucesso.
+[04/11/2026 14:54:40] [CONCLU═DO] Finalizada execuþÒo de ExtraþÒo de texto do PDF.
+[04/11/2026 14:54:40] [SUCESSO] ExtraþÒo de texto do PDF concluÝdo com sucesso.
+[04/11/2026 14:54:40] [CONCLU═DO] Finalizada execuþÒo de ExtraþÒo de texto do PDF.
+[04/11/2026 14:54:40] [PROGRESSO] Lendo PDF 4 de 17: download (4).pdf...
+[04/11/2026 14:54:40] [IN═CIO] ExtraþÒo de texto do PDF iniciado.
+[04/11/2026 14:54:40] [IN═CIO] ExtraþÒo de texto do PDF iniciado.
+[04/11/2026 14:54:40] [SUCESSO] ExtraþÒo de texto do PDF concluÝdo com sucesso.
+[04/11/2026 14:54:40] [CONCLU═DO] Finalizada execuþÒo de ExtraþÒo de texto do PDF.
+[04/11/2026 14:54:40] [SUCESSO] ExtraþÒo de texto do PDF concluÝdo com sucesso.
+[04/11/2026 14:54:40] [CONCLU═DO] Finalizada execuþÒo de ExtraþÒo de texto do PDF.
+[04/11/2026 14:54:40] [PROGRESSO] Lendo PDF 5 de 17: download (5).pdf...
+[04/11/2026 14:54:40] [IN═CIO] ExtraþÒo de texto do PDF iniciado.
+[04/11/2026 14:54:40] [IN═CIO] ExtraþÒo de texto do PDF iniciado.
+[04/11/2026 14:54:41] [SUCESSO] ExtraþÒo de texto do PDF concluÝdo com sucesso.
+[04/11/2026 14:54:41] [CONCLU═DO] Finalizada execuþÒo de ExtraþÒo de texto do PDF.
+[04/11/2026 14:54:41] [SUCESSO] ExtraþÒo de texto do PDF concluÝdo com sucesso.
+[04/11/2026 14:54:41] [CONCLU═DO] Finalizada execuþÒo de ExtraþÒo de texto do PDF.
+[04/11/2026 14:54:41] [PROGRESSO] Lendo PDF 6 de 17: download (6).pdf...
+[04/11/2026 14:54:41] [IN═CIO] ExtraþÒo de texto do PDF iniciado.
+[04/11/2026 14:54:41] [IN═CIO] ExtraþÒo de texto do PDF iniciado.
+[04/11/2026 14:54:41] [SUCESSO] ExtraþÒo de texto do PDF concluÝdo com sucesso.
+[04/11/2026 14:54:41] [CONCLU═DO] Finalizada execuþÒo de ExtraþÒo de texto do PDF.
+[04/11/2026 14:54:41] [SUCESSO] ExtraþÒo de texto do PDF concluÝdo com sucesso.
+[04/11/2026 14:54:41] [CONCLU═DO] Finalizada execuþÒo de ExtraþÒo de texto do PDF.
+[04/11/2026 14:54:41] [PROGRESSO] Lendo PDF 7 de 17: download (7).pdf...
+[04/11/2026 14:54:41] [IN═CIO] ExtraþÒo de texto do PDF iniciado.
+[04/11/2026 14:54:41] [IN═CIO] ExtraþÒo de texto do PDF iniciado.
+[04/11/2026 14:54:41] [SUCESSO] ExtraþÒo de texto do PDF concluÝdo com sucesso.
+[04/11/2026 14:54:41] [CONCLU═DO] Finalizada execuþÒo de ExtraþÒo de texto do PDF.
+[04/11/2026 14:54:41] [SUCESSO] ExtraþÒo de texto do PDF concluÝdo com sucesso.
+[04/11/2026 14:54:41] [CONCLU═DO] Finalizada execuþÒo de ExtraþÒo de texto do PDF.
+[04/11/2026 14:54:41] [PROGRESSO] Lendo PDF 8 de 17: download (8).pdf...
+[04/11/2026 14:54:41] [IN═CIO] ExtraþÒo de texto do PDF iniciado.
+[04/11/2026 14:54:41] [IN═CIO] ExtraþÒo de texto do PDF iniciado.
+[04/11/2026 14:54:41] [SUCESSO] ExtraþÒo de texto do PDF concluÝdo com sucesso.
+[04/11/2026 14:54:41] [CONCLU═DO] Finalizada execuþÒo de ExtraþÒo de texto do PDF.
+[04/11/2026 14:54:41] [SUCESSO] ExtraþÒo de texto do PDF concluÝdo com sucesso.
+[04/11/2026 14:54:41] [CONCLU═DO] Finalizada execuþÒo de ExtraþÒo de texto do PDF.
+[04/11/2026 14:54:41] [PROGRESSO] Lendo PDF 9 de 17: DAR_INTERNET_200726_1432590.pdf...
+[04/11/2026 14:54:41] [IN═CIO] ExtraþÒo de texto do PDF iniciado.
+[04/11/2026 14:54:41] [IN═CIO] ExtraþÒo de texto do PDF iniciado.
+[04/11/2026 14:54:41] [SUCESSO] ExtraþÒo de texto do PDF concluÝdo com sucesso.
+[04/11/2026 14:54:41] [CONCLU═DO] Finalizada execuþÒo de ExtraþÒo de texto do PDF.
+[04/11/2026 14:54:41] [SUCESSO] ExtraþÒo de texto do PDF concluÝdo com sucesso.
+[04/11/2026 14:54:41] [CONCLU═DO] Finalizada execuþÒo de ExtraþÒo de texto do PDF.
+AP-guia: ok=False motivo=INCOMPLETO: nenhum CPF/CNPJ no campo 05 nfe_map=dict n=8 keys=['35260756153520000199550010000660931004016170', '35260724804709000531550060035191341103164010', '35260709509531000936558090001011841151213594']
+[04/11/2026 14:54:41] [PROGRESSO] Lendo PDF 10 de 17: DAR_INTERNET_200726_1434300.pdf...
+[04/11/2026 14:54:41] [IN═CIO] ExtraþÒo de texto do PDF iniciado.
+[04/11/2026 14:54:41] [IN═CIO] ExtraþÒo de texto do PDF iniciado.
+[04/11/2026 14:54:41] [SUCESSO] ExtraþÒo de texto do PDF concluÝdo com sucesso.
+[04/11/2026 14:54:41] [CONCLU═DO] Finalizada execuþÒo de ExtraþÒo de texto do PDF.
+[04/11/2026 14:54:41] [SUCESSO] ExtraþÒo de texto do PDF concluÝdo com sucesso.
+[04/11/2026 14:54:41] [CONCLU═DO] Finalizada execuþÒo de ExtraþÒo de texto do PDF.
+AP-guia: ok=False motivo=INCOMPLETO: nenhum CPF/CNPJ no campo 05 nfe_map=dict n=8 keys=['35260756153520000199550010000660931004016170', '35260724804709000531550060035191341103164010', '35260709509531000936558090001011841151213594']
+[04/11/2026 14:54:41] [PROGRESSO] Lendo PDF 11 de 17: DAR_INTERNET_200726_1436010.pdf...
+[04/11/2026 14:54:41] [IN═CIO] ExtraþÒo de texto do PDF iniciado.
+[04/11/2026 14:54:41] [IN═CIO] ExtraþÒo de texto do PDF iniciado.
+[04/11/2026 14:54:41] [SUCESSO] ExtraþÒo de texto do PDF concluÝdo com sucesso.
+[04/11/2026 14:54:41] [CONCLU═DO] Finalizada execuþÒo de ExtraþÒo de texto do PDF.
+[04/11/2026 14:54:41] [SUCESSO] ExtraþÒo de texto do PDF concluÝdo com sucesso.
+[04/11/2026 14:54:41] [CONCLU═DO] Finalizada execuþÒo de ExtraþÒo de texto do PDF.
+AP-guia: ok=False motivo=INCOMPLETO: nenhum CPF/CNPJ no campo 05 nfe_map=dict n=8 keys=['35260756153520000199550010000660931004016170', '35260724804709000531550060035191341103164010', '35260709509531000936558090001011841151213594']
+[04/11/2026 14:54:41] [PROGRESSO] Lendo PDF 12 de 17: DAR_INTERNET_200726_1438210.pdf...
+[04/11/2026 14:54:41] [IN═CIO] ExtraþÒo de texto do PDF iniciado.
+[04/11/2026 14:54:41] [IN═CIO] ExtraþÒo de texto do PDF iniciado.
+[04/11/2026 14:54:42] [SUCESSO] ExtraþÒo de texto do PDF concluÝdo com sucesso.
+[04/11/2026 14:54:42] [CONCLU═DO] Finalizada execuþÒo de ExtraþÒo de texto do PDF.
+[04/11/2026 14:54:42] [SUCESSO] ExtraþÒo de texto do PDF concluÝdo com sucesso.
+[04/11/2026 14:54:42] [CONCLU═DO] Finalizada execuþÒo de ExtraþÒo de texto do PDF.
+AP-guia: ok=False motivo=INCOMPLETO: nenhum CPF/CNPJ no campo 05 nfe_map=dict n=8 keys=['35260756153520000199550010000660931004016170', '35260724804709000531550060035191341103164010', '35260709509531000936558090001011841151213594']
+[04/11/2026 14:54:42] [PROGRESSO] Lendo PDF 13 de 17: DAR_INTERNET_200726_1441380.pdf...
+[04/11/2026 14:54:42] [IN═CIO] ExtraþÒo de texto do PDF iniciado.
+[04/11/2026 14:54:42] [IN═CIO] ExtraþÒo de texto do PDF iniciado.
+[04/11/2026 14:54:42] [SUCESSO] ExtraþÒo de texto do PDF concluÝdo com sucesso.
+[04/11/2026 14:54:42] [CONCLU═DO] Finalizada execuþÒo de ExtraþÒo de texto do PDF.
+[04/11/2026 14:54:42] [SUCESSO] ExtraþÒo de texto do PDF concluÝdo com sucesso.
+[04/11/2026 14:54:42] [CONCLU═DO] Finalizada execuþÒo de ExtraþÒo de texto do PDF.
+AP-guia: ok=False motivo=INCOMPLETO: nenhum CPF/CNPJ no campo 05 nfe_map=dict n=8 keys=['35260756153520000199550010000660931004016170', '35260724804709000531550060035191341103164010', '35260709509531000936558090001011841151213594']
+[04/11/2026 14:54:42] [PROGRESSO] Lendo PDF 14 de 17: DAR_INTERNET_200726_1443370.pdf...
+[04/11/2026 14:54:42] [IN═CIO] ExtraþÒo de texto do PDF iniciado.
+[04/11/2026 14:54:42] [IN═CIO] ExtraþÒo de texto do PDF iniciado.
+[04/11/2026 14:54:42] [SUCESSO] ExtraþÒo de texto do PDF concluÝdo com sucesso.
+[04/11/2026 14:54:42] [CONCLU═DO] Finalizada execuþÒo de ExtraþÒo de texto do PDF.
+[04/11/2026 14:54:42] [SUCESSO] ExtraþÒo de texto do PDF concluÝdo com sucesso.
+[04/11/2026 14:54:42] [CONCLU═DO] Finalizada execuþÒo de ExtraþÒo de texto do PDF.
+AP-guia: ok=False motivo=INCOMPLETO: nenhum CPF/CNPJ no campo 05 nfe_map=dict n=8 keys=['35260756153520000199550010000660931004016170', '35260724804709000531550060035191341103164010', '35260709509531000936558090001011841151213594']
+[04/11/2026 14:54:42] [PROGRESSO] Lendo PDF 15 de 17: DAR_INTERNET_200726_1445100.pdf...
+[04/11/2026 14:54:42] [IN═CIO] ExtraþÒo de texto do PDF iniciado.
+[04/11/2026 14:54:42] [IN═CIO] ExtraþÒo de texto do PDF iniciado.
+[04/11/2026 14:54:42] [SUCESSO] ExtraþÒo de texto do PDF concluÝdo com sucesso.
+[04/11/2026 14:54:42] [CONCLU═DO] Finalizada execuþÒo de ExtraþÒo de texto do PDF.
+[04/11/2026 14:54:42] [SUCESSO] ExtraþÒo de texto do PDF concluÝdo com sucesso.
+[04/11/2026 14:54:42] [CONCLU═DO] Finalizada execuþÒo de ExtraþÒo de texto do PDF.
+AP-guia: ok=False motivo=INCOMPLETO: nenhum CPF/CNPJ no campo 05 nfe_map=dict n=8 keys=['35260756153520000199550010000660931004016170', '35260724804709000531550060035191341103164010', '35260709509531000936558090001011841151213594']
+[04/11/2026 14:54:42] [PROGRESSO] Lendo PDF 16 de 17: DAR_INTERNET_200726_1446230 (1).pdf...
+[04/11/2026 14:54:42] [IN═CIO] ExtraþÒo de texto do PDF iniciado.
+[04/11/2026 14:54:42] [IN═CIO] ExtraþÒo de texto do PDF iniciado.
+[04/11/2026 14:54:42] [SUCESSO] ExtraþÒo de texto do PDF concluÝdo com sucesso.
+[04/11/2026 14:54:42] [CONCLU═DO] Finalizada execuþÒo de ExtraþÒo de texto do PDF.
+[04/11/2026 14:54:42] [SUCESSO] ExtraþÒo de texto do PDF concluÝdo com sucesso.
+[04/11/2026 14:54:42] [CONCLU═DO] Finalizada execuþÒo de ExtraþÒo de texto do PDF.
+AP-guia: ok=False motivo=INCOMPLETO: nenhum CPF/CNPJ no campo 05 nfe_map=dict n=8 keys=['35260756153520000199550010000660931004016170', '35260724804709000531550060035191341103164010', '35260709509531000936558090001011841151213594']
+[04/11/2026 14:54:42] [PROGRESSO] Lendo PDF 17 de 17: DAR_INTERNET_200726_1448200 (1).pdf...
+[04/11/2026 14:54:42] [IN═CIO] ExtraþÒo de texto do PDF iniciado.
+[04/11/2026 14:54:42] [IN═CIO] ExtraþÒo de texto do PDF iniciado.
+[04/11/2026 14:54:42] [SUCESSO] ExtraþÒo de texto do PDF concluÝdo com sucesso.
+[04/11/2026 14:54:42] [CONCLU═DO] Finalizada execuþÒo de ExtraþÒo de texto do PDF.
+[04/11/2026 14:54:42] [SUCESSO] ExtraþÒo de texto do PDF concluÝdo com sucesso.
+[04/11/2026 14:54:42] [CONCLU═DO] Finalizada execuþÒo de ExtraþÒo de texto do PDF.
+AP-guia: ok=False motivo=INCOMPLETO: nenhum CPF/CNPJ no campo 05 nfe_map=dict n=8 keys=['35260756153520000199550010000660931004016170', '35260724804709000531550060035191341103164010', '35260709509531000936558090001011841151213594']
+[04/11/2026 14:54:42] [IN═CIO] GravaþÒo da planilha iniciado.
+[04/11/2026 14:54:42] [SUCESSO] GravaþÒo da planilha concluÝdo com sucesso.
+[04/11/2026 14:54:42] [CONCLU═DO] Finalizada execuþÒo de GravaþÒo da planilha.
+[04/11/2026 14:54:42] [IN═CIO] ConciliaþÒo Fraction Exclusiva por CTe e ValidaþÒo P¾s-Leitura iniciado.
+[04/11/2026 14:54:42] [SUCESSO] ConciliaþÒo Fraction Exclusiva por CTe e ValidaþÒo P¾s-Leitura concluÝdo com sucesso.
+[04/11/2026 14:54:42] [CONCLU═DO] Finalizada execuþÒo de ConciliaþÒo Fraction Exclusiva por CTe e ValidaþÒo P¾s-Leitura.
+[04/11/2026 14:54:42] [IN═CIO] GravaþÒo da planilha iniciado.
+[04/11/2026 14:54:42] [SUCESSO] GravaþÒo da planilha concluÝdo com sucesso.
+[04/11/2026 14:54:42] [CONCLU═DO] Finalizada execuþÒo de GravaþÒo da planilha.
+[04/11/2026 14:54:42] [SUCESSO] GeraþÒo de planilha via pasta local concluÝdo com sucesso.
+[04/11/2026 14:54:42] [CONCLU═DO] Finalizada execuþÒo de GeraþÒo de planilha via pasta local.
+[04/11/2026 14:56:22] [IN═CIO] ConciliaþÒo Fraction Exclusiva por CTe e ValidaþÒo P¾s-Leitura iniciado.
+[04/11/2026 14:56:22] [SUCESSO] ConciliaþÒo Fraction Exclusiva por CTe e ValidaþÒo P¾s-Leitura concluÝdo com sucesso.
+[04/11/2026 14:56:22] [CONCLU═DO] Finalizada execuþÒo de ConciliaþÒo Fraction Exclusiva por CTe e ValidaþÒo P¾s-Leitura.

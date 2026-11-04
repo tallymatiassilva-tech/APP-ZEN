@@ -1,0 +1,86 @@
+ 5500|                             f"[!] Leitura local do arquivo '{nome_arquivo}': {status_pdf}"
+ 5501|                         )
+ 5502| 
+ 5503|                     uf_deste_pdf = self._identificar_uf(None, txt_pdf)
+ 5504| 
+ 5505|                     if e_nota_fiscal(txt_pdf, nome_arquivo):
+ 5506|                         match_nfe = re.search(
+ 5507|                             r"NF-e[\s\n\r]+N[ºo\.]*\s*([\d\.]+)", txt_pdf, re.IGNORECASE
+ 5508|                         )
+ 5509|                         match_nfe_alt = re.search(
+ 5510|                             r"N[ºo\.]*\s*(\d{3}\.\d{3}\.\d{3}|\d{1,9})",
+ 5511|                             txt_pdf,
+ 5512|                             re.IGNORECASE,
+ 5513|                         )
+ 5514|                         num_nota_limpo = (
+ 5515|                             match_nfe.group(1).strip()
+ 5516|                             if match_nfe
+ 5517|                             else (
+ 5518|                                 match_nfe_alt.group(1).strip() if match_nfe_alt else ""
+ 5519|                             )
+ 5520|                         )
+ 5521|                         if num_nota_limpo:
+ 5522|                             num_nota_limpo = formatar_numero_arquivo(num_nota_limpo)
+ 5523|                         for chave_nfe in extrair_chaves_nfe_pdf(txt_pdf, raw_bytes):
+ 5524|                             nfe_map[chave_nfe] = num_nota_limpo
+ 5525|                         self.atualizar_progresso(i, len(arquivos_pdf))
+ 5526|                         continue
+ 5527| 
+ 5528|                     if uf_deste_pdf in ["AL", "AP", "AC", "MS"]:
+ 5529|                         if uf_deste_pdf == "AP":
+ 5530|                             for id_guia, bloco_guia in separar_guias_ap(txt_pdf):
+ 5531|                                 repetida_no_lote = bool(
+ 5532|                                     id_guia and id_guia in ids_guias_ap
+ 5533|                                 )
+ 5534|                                 historico_ap = self.memoria_termos.get(id_guia or "")
+ 5535|                                 if repetida_no_lote:
+ 5536|                                     for indice_linha in indices_guias_ap_pasta.get(
+ 5537|                                         id_guia, []
+ 5538|                                     ):
+ 5539|                                         linha_existente = dars_pasta_data[indice_linha]
+ 5540|                                         dars_pasta_data[indice_linha] = (
+ 5541|                                             *linha_existente[:8],
+ 5542|                                             _marcar_status_guia_ap_processada(
+ 5543|                                                 linha_existente[8]
+ 5544|                                             ),
+ 5545|                                         )
+ 5546|                                     continue
+ 5547|                                 if id_guia:
+ 5548|                                     ids_guias_ap.add(id_guia)
+ 5549|                                 (
+ 5550|                                     termo_ext,
+ 5551|                                     pares_ext,
+ 5552|                                     cbo_ext,
+ 5553|                                     cb_ext,
+ 5554|                                     venc_ext,
+ 5555|                                     val_ext,
+ 5556|                                     uf_ext,
+ 5557|                                 ) = extrair_documento(
+ 5558|                                     "AP", bloco_guia, nome_arquivo, nfe_map
+ 5559|                                 )
+ 5560|                                 status_ap = validar_chaves_ap(pares_ext, nfe_map)
+ 5561|                                 try:
+ 5562|                                     _ok_ap, _mot_ap = validar_guia_ap(pares_ext, bloco_guia, nfe_map)
+ 5563|                                     _msg_ap = 'AP-guia: ok=%s motivo=%s nfe_map=%s' % (_ok_ap, _mot_ap, resumo_nfe_map(nfe_map))
+ 5564|                                     (logger.info(_msg_ap) if 'logger' in globals() else print(_msg_ap))
+ 5565|                                 except Exception as _e_ap:
+ 5566|                                     print('AP-guia: nao executou: %s' % _e_ap)
+ 5567|                                 if historico_ap:
+ 5568|                                     status_ap = _marcar_status_guia_ap_processada(
+ 5569|                                         status_ap
+ 5570|                                     )
+ 5571|                                 pares_ap = pares_ext or [
+ 5572|                                     ("Sem Arquivo Válido", "Sem Número")
+ 5573|                                 ]
+ 5574|                                 indices_linhas_ap = []
+ 5575|                                 for par_ap in pares_ap:
+ 5576|                                     linha_ap = (
+ 5577|                                         termo_ext,
+ 5578|                                         [par_ap],
+ 5579|                                         cbo_ext,
+ 5580|                                         cb_ext,
+ 5581|                                         padronizar_data_ddmmyyyy(venc_ext),
+ 5582|                                         val_ext,
+ 5583|                                         uf_ext,
+ 5584|                                         caminho_pdf,
+ 5585|                                         status_ap,

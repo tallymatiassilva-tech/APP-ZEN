@@ -769,24 +769,30 @@ def extrair_chaves_nfe_pdf(texto_pdf: str, pdf_bytes: bytes | None = None) -> li
 
 
 def validar_chaves_ap(pares_documento: list, chaves_nfe: set[str] | dict) -> str:
-    chaves_guia = {
-        re.sub(r"\D", "", str(chave or ""))
-        for chave, _ in pares_documento
-        if chave and chave != "Sem Arquivo Válido" and chave_nfe_valida(str(chave))
-    }
+    """DOC OK quando a chave da guia pertence a remessa. Senao QUARENTENA."""
+    chaves_guia = set()
+    for par in pares_documento or []:
+        try:
+            chave = par[0]
+        except Exception:
+            continue
+        if not chave or chave == "Sem Arquivo Válido":
+            continue
+        if not chave_nfe_valida(str(chave)):
+            continue
+        chaves_guia.add(re.sub(r"\D", "", str(chave)))
     if not chaves_guia:
-        return "INCOMPLETO: Chave da guia AP não localizada"
+        return "QUARENTENA: chave da guia AP nao localizada"
 
-    chaves_nfe_validas = {
-        re.sub(r"\D", "", str(chave or ""))
-        for chave in chaves_nfe
-        if chave_nfe_valida(str(chave))
-    }
+    chaves_nfe_validas = set()
+    for chave in chaves_nfe or []:
+        if chave_nfe_valida(str(chave)):
+            chaves_nfe_validas.add(re.sub(r"\D", "", str(chave)))
     if not chaves_nfe_validas:
-        return "INCOMPLETO: Chave da NF-e não localizada"
+        return "QUARENTENA: remessa sem chaves de NF-e"
     if chaves_guia.issubset(chaves_nfe_validas):
-        return "OK"
-    return "INCOMPLETO: Chave da guia diverge da NF-e"
+        return "DOC OK"
+    return "QUARENTENA: chave da guia diverge da NF-e"
 
 
 @registrar_execucao("Mesclagem de PDFs")
@@ -5480,6 +5486,7 @@ class ZendeskAppGUI:
             )
 
             nfe_map, dars_pasta_data = {}, []
+            self._doc_ap05_por_chave = {}
             ids_guias_ap = set()
             indices_guias_ap_pasta = {}
             for i, caminho_pdf in enumerate(arquivos_pdf, 1):
@@ -5558,6 +5565,25 @@ class ZendeskAppGUI:
                                     "AP", bloco_guia, nome_arquivo, nfe_map
                                 )
                                 status_ap = validar_chaves_ap(pares_ext, nfe_map)
+                                # AP-EXCLUSIVO: guarda o campo 05 da guia, indexado pela chave de 44 digitos.
+                                try:
+                                    from src.services.ufs.ap_validacao import (
+                                        doc_do_campo_05 as _doc05_ap,
+                                        documentos_dos_pares as _docs_ap,
+                                    )
+                                    _campo05_ap = _doc05_ap(bloco_guia)
+                                    if not _campo05_ap:
+                                        _lst_ap = _docs_ap(pares_ext)
+                                        _campo05_ap = _lst_ap[0] if _lst_ap else ""
+                                    if _campo05_ap:
+                                        _campo05_ap = "".join(_c for _c in str(_campo05_ap) if _c.isdigit())
+                                        for _par_ap in pares_ext or []:
+                                            _pval = _par_ap[0] if isinstance(_par_ap, (tuple, list)) and _par_ap else _par_ap
+                                            _dig = "".join(_c for _c in str(_pval or "") if _c.isdigit())
+                                            if len(_dig) == 44:
+                                                self._doc_ap05_por_chave[_dig] = _campo05_ap
+                                except Exception:
+                                    pass
                                 try:
                                     _ok_ap, _mot_ap = validar_guia_ap(pares_ext, bloco_guia, nfe_map)
                                     _msg_ap = 'AP-guia: ok=%s motivo=%s nfe_map=%s' % (_ok_ap, _mot_ap, resumo_nfe_map(nfe_map))
@@ -5672,6 +5698,31 @@ class ZendeskAppGUI:
                     self.log(f"[!] Erro ao abrir arquivo {nome_arquivo}: {e}")
                 self.atualizar_progresso(i, len(arquivos_pdf))
 
+            # === CLASSIFICACAO POS-LEITURA: reclassifica toda guia AP ===
+            _ap_total = _ap_ok = _ap_quar = _ap_corr = 0
+            for _idx, _linha in enumerate(dars_pasta_data):
+                if not isinstance(_linha, (tuple, list)) or len(_linha) < 9:
+                    continue
+                if str(_linha[6] or '') != 'AP':
+                    continue
+                _antigo = str(_linha[8] or '')
+                _novo = validar_chaves_ap(_linha[1], nfe_map)
+                if _novo != _antigo:
+                    dars_pasta_data[_idx] = (*_linha[:8], _novo)
+                    _ap_corr += 1
+                _ap_total += 1
+                if 'DOC OK' in _novo:
+                    _ap_ok += 1
+                else:
+                    _ap_quar += 1
+            try:
+                log_terminal(
+                    'INFO',
+                    '[AP] Pos-leitura: %d guia(s) | DOC OK: %d | QUARENTENA: %d | corrigidas: %d | notas no mapa: %d'
+                    % (_ap_total, _ap_ok, _ap_quar, _ap_corr, len(nfe_map)),
+                )
+            except Exception:
+                pass
             # MÁGICA EXCLUSIVA PARA AP: Mapa para unir Notas e Guias separadas através da Chave
             mapa_chaves_termo_ap = {}
             for t_pdf, p_doc, _, _, _, _, uf_layout, _, _ in dars_pasta_data:
@@ -5705,7 +5756,16 @@ class ZendeskAppGUI:
                         f"ARQ_{hashlib.md5(full_path.encode('utf-8')).hexdigest()[:10]}"
                     )
                 else:
-                    chave_map = termo_pdf
+                    # Chave de 44 digitos do documento: guia e nota da mesma NF-e
+                    # compartilham a chave e caem na mesma linha da planilha.
+                    _chave_ref = ''
+                    for _par in pares or []:
+                        _ch = _par[0] if isinstance(_par, (tuple, list)) and _par else _par
+                        _c = re.sub(r'\\D', '', str(_ch or ''))
+                        if len(_c) == 44:
+                            _chave_ref = _c
+                            break
+                    chave_map = _chave_ref or termo_pdf
 
                 # Se for AP e continuar sem termo, mantém a separação antiga. Se achou, unifica!
                 if uf_item == "AP" and (not termo_pdf or termo_pdf == "Não localizado"):
@@ -5746,7 +5806,20 @@ class ZendeskAppGUI:
                         **{campo: [] for campo in AL_CAMPOS_PLANILHA},
                         "STATUS CONFERÊNCIA": status_conf,
                     }
-                doc_guia_ap = nfe_map.get(f"DOC_MS_{termo_pdf}", "")
+                # AP-EXCLUSIVO: campo 05 da propria guia (CPF/CNPJ/IE), so digitos.
+                # MS, AL e AC continuam com DOC_MS_ exatamente como antes.
+                if uf_item == "AP":
+                    doc_guia_ap = getattr(self, "_doc_ap05_por_chave", {}).get(chave_map, "")
+                    if not doc_guia_ap:
+                        try:
+                            from src.services.ufs.ap_validacao import documentos_dos_pares as _docs_ap
+                            _lista_doc_ap = _docs_ap(pares)
+                            doc_guia_ap = _lista_doc_ap[0] if _lista_doc_ap else ""
+                        except Exception:
+                            doc_guia_ap = ""
+                else:
+                    doc_guia_ap = nfe_map.get(f"DOC_MS_{termo_pdf}", "")
+                doc_guia_ap = "".join(_c for _c in str(doc_guia_ap or "") if _c.isdigit())
                 if (
                     doc_guia_ap
                     and doc_guia_ap not in termos_map[chave_map]["CPF/CNPJ DA GUIA"]

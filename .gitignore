@@ -2,3 +2,9 @@ __pycache__/
 *.pyc
 scratch_*.py
 *_backup.py
+
+# arquivos locais
+scratch_*.py
+*.bak*
+__pycache__/
+*.pyc
