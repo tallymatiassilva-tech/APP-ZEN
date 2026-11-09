@@ -38,10 +38,12 @@ from src.services.attachment_service import (
     determinar_quarentena_al,
     limpar_nome_anexo,
     propagar_vencimento_dar_ap,
+    salvar_anexos_processados,
 )
 from src.services.document_classifier import normalizar_documento_fiscal
 from src.services.fraction_service import (
     EvidenciasConferenciaFraction,
+    aplicar_resultado_conferencia_fraction,
     armazenar_resultado_cache_fraction,
     atualizar_linha_fraction,
     atualizar_memoria_termo_fraction,
@@ -65,6 +67,7 @@ from src.services.fraction_service import (
     preencher_campos_fraction,
     preparar_evidencias_conferencia_fraction,
     preparar_formulario_fraction,
+    preparar_itens_pendentes_fraction,
     resposta_fraction_indica_login,
     selecionar_resultado_fraction,
 )
@@ -810,6 +813,40 @@ def test_extrai_cte_de_chave_dacte_apenas_quando_nao_ha_cte_na_planilha():
     ) == [dacte]
 
 
+def test_prepara_itens_fraction_separa_consultas_alertas_ap_e_sem_cte():
+    item_ap_com_cte = {
+        "TERMO": "guia-ap",
+        "UF": " ap ",
+        "STATUS CONFERÊNCIA": "incompleto: chave divergente",
+        "CTE / REMESSA": "123456",
+    }
+    item_sem_cte = {
+        "TERMO": "guia-sem-cte",
+        "UF": "AL",
+        "STATUS CONFERÊNCIA": "OK",
+        "CTE / REMESSA": "Sem CTE",
+        "DACTE": f"{'1' * 20}55{'2' * 22}",
+    }
+    item_com_dacte = {
+        "TERMO": "guia-dacte",
+        "UF": "AL",
+        "STATUS CONFERÊNCIA": "OK",
+        "CTE / REMESSA": "",
+        "DACTE": f"{'3' * 20}57{'4' * 22}",
+    }
+
+    resultado = preparar_itens_pendentes_fraction(
+        [item_ap_com_cte, item_sem_cte, item_com_dacte]
+    )
+
+    assert resultado.itens_pendentes == [
+        (item_ap_com_cte, ["123456"]),
+        (item_com_dacte, [item_com_dacte["DACTE"]]),
+    ]
+    assert resultado.guias_ap_chave_incompleta == [item_ap_com_cte]
+    assert resultado.itens_sem_cte == [item_sem_cte]
+
+
 def test_obtem_resultado_cache_fraction_apenas_quando_tomador_existe():
     assert obter_resultado_cache_fraction(
         {"123456": ("Tomador", {"texto_completo": "dados"})}, "123456"
@@ -1012,6 +1049,49 @@ def test_atualiza_linha_fraction_coleta_documentos_antes_do_preenchimento():
     assert item["TOMADOR"] == "Tomador"
 
 
+def test_aplica_resultado_fraction_atualiza_linha_memoria_e_status():
+    item = {
+        "TERMO": "T-1",
+        "STATUS CONFERÊNCIA": "OK",
+        "CPF/CNPJ DA GUIA": "12345678000190",
+        "CHAVE ARQUIVO": "",
+        "NÚMERO ARQUIVO": "",
+        "EMITENTE - CPF/CNPJ": "",
+        "DESTINATÁRIO - CPF/CNPJ": "",
+        "TOMADOR": "",
+        "DACTE": "",
+    }
+    memoria = {"T-1": {"TOMADOR": "Anterior"}}
+
+    resultado = aplicar_resultado_conferencia_fraction(
+        item,
+        memoria,
+        "Tomador Fraction",
+        "12345678901234567890123456789012345678901234",
+        {
+            "rem_nome": "Remetente",
+            "rem_cnpj": "98.765.432/0001-10",
+            "rem_ie": "",
+            "dest_nome": "Destinatário",
+            "dest_cnpj": "",
+            "dest_ie": "",
+        },
+        {"cnpjs": ["98.765.432/0001-10"], "chaves_nfe": [], "numeros_notas": []},
+    )
+
+    assert resultado.motivos == [
+        "Doc da guia (12345678000190) não confere com o Fraction"
+    ]
+    assert resultado.inconclusivos == ["chave NF-e", "número NF-e"]
+    assert resultado.status.startswith("DIVERGÊNCIA CTI")
+    assert resultado.status_atualizado is True
+    assert item["STATUS CONFERÊNCIA"] == resultado.status
+    assert item["TOMADOR"] == "Tomador Fraction"
+    assert item["EMITENTE - CPF/CNPJ"] == "98765432000110"
+    assert memoria["T-1"]["TOMADOR"] == "Tomador Fraction"
+    assert memoria["T-1"]["EMITENTE - CPF/CNPJ"] == ["98765432000110"]
+
+
 def test_dar_termo():
     assert e_dar_documento("DOCUMENTO DE ARRECADACAO ESTADUAL DARE 123") is True
     assert e_termo_documento("TERMO DE AVERIGUACAO 123456") is True
@@ -1094,6 +1174,72 @@ def test_determina_nome_de_arquivo_sem_sobrescrever(tmp_path):
     assert determinar_caminho_arquivo_unico(tmp_path, "anexo.pdf") == (
         tmp_path / "anexo_2.pdf"
     )
+
+
+def test_salva_anexos_processados_em_pastas_e_sem_sobrescrever(tmp_path):
+    anexos = [
+        {
+            "uf_final": "AL",
+            "subpasta": "DAR",
+            "is_dar": True,
+            "is_nota": False,
+            "is_duplicado": False,
+            "is_vencido": False,
+            "nome_limpo": "guia.pdf",
+            "conteudo": b"primeira",
+        },
+        {
+            "uf_final": "AL",
+            "subpasta": "DAR",
+            "is_dar": True,
+            "is_nota": False,
+            "is_duplicado": False,
+            "is_vencido": False,
+            "nome_limpo": "guia.pdf",
+            "conteudo": b"segunda",
+        },
+        {
+            "uf_final": "AP",
+            "subpasta": "NOTAS",
+            "is_dar": False,
+            "is_nota": True,
+            "is_duplicado": False,
+            "is_vencido": True,
+            "nome_limpo": "nota.pdf",
+            "conteudo": b"nota",
+        },
+    ]
+
+    caminhos = salvar_anexos_processados(tmp_path, anexos, em_quarentena=False)
+
+    assert caminhos == [
+        tmp_path / "AL" / "DAR" / "guia.pdf",
+        tmp_path / "AL" / "DAR" / "guia_1.pdf",
+        tmp_path / "AP" / "VENCIDAS" / "nota.pdf",
+    ]
+    assert [caminho.read_bytes() for caminho in caminhos] == [
+        b"primeira",
+        b"segunda",
+        b"nota",
+    ]
+
+
+def test_salva_anexo_al_na_quarentena(tmp_path):
+    anexo = {
+        "uf_final": "AL",
+        "subpasta": "TERMO",
+        "is_dar": False,
+        "is_nota": False,
+        "is_duplicado": False,
+        "is_vencido": False,
+        "nome_limpo": "termo.pdf",
+        "conteudo": b"termo",
+    }
+
+    caminhos = salvar_anexos_processados(tmp_path, [anexo], em_quarentena=True)
+
+    assert caminhos == [tmp_path / "AL" / "QUARENTENA" / "termo.pdf"]
+    assert caminhos[0].read_bytes() == b"termo"
 
 
 def test_quarentena_al_considera_documentos_unicos_e_indica_falta():

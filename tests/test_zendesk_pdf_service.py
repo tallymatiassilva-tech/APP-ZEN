@@ -4,13 +4,18 @@ from src.services.ufs.al import AL_CAMPOS_PLANILHA
 from src.services.zendesk_pdf_service import (
     agregar_registros_ticket,
     analisar_anexo_baixado,
+    baixar_e_analisar_anexos_ticket,
+    coletar_anexos_ticket,
     determinar_uf_ticket,
     extrair_pdfs_dos_comentarios,
+    identificar_uf_ticket,
     mapear_chaves_nfe_pdf,
     mapear_termo_cte_ticket,
     ordenar_pdfs_nota_primeiro,
+    processar_anexos_ticket,
     processar_guias_ap_ticket,
     processar_pdfs_ticket,
+    processar_ticket_para_planilha,
 )
 
 NF_1 = "33260913121476000122550010001447611862291617"
@@ -50,6 +55,44 @@ def test_extrai_pdfs_dos_comentarios_e_ignora_nao_pdf_ou_download_vazio():
         ("nota.pdf", "texto-pdf-nota", b"pdf-nota"),
         ("guia.pdf", "texto-pdf-guia", b"pdf-guia"),
     ]
+
+
+def test_coleta_anexos_de_descricao_e_comentarios_preservando_ordem():
+    comentario_anexos = [
+        {"file_name": "nota.pdf", "content_url": "url-nota"},
+        {"file_name": "imagem.png", "content_url": "url-imagem"},
+    ]
+
+    anexos = coletar_anexos_ticket(
+        {
+            "description": (
+                "Veja https://example.com/attachments/first.pdf e "
+                "https://example.com/attachment/second?download=1"
+            )
+        },
+        [{"attachments": comentario_anexos}, {"attachments": [{"file_name": "guia.pdf"}]}],
+        "789",
+    )
+
+    assert anexos == [
+        {
+            "file_name": "anexo_789.pdf",
+            "content_url": "https://example.com/attachments/first.pdf",
+        },
+        {
+            "file_name": "anexo_789.pdf",
+            "content_url": "https://example.com/attachment/second?download=1",
+        },
+        *comentario_anexos,
+        {"file_name": "guia.pdf"},
+    ]
+    assert anexos[2] is comentario_anexos[0]
+
+
+def test_coleta_anexos_sem_descricao_retorna_anexos_dos_comentarios():
+    comentario = {"attachments": [{"file_name": "guia.pdf", "content_url": "url"}]}
+
+    assert coletar_anexos_ticket({}, [comentario], "789") == comentario["attachments"]
 
 
 def test_mapeia_chaves_nfe_com_numero_do_padrao_principal():
@@ -215,6 +258,119 @@ def test_classifica_anexo_nao_pdf_com_estado_do_ticket_e_marca_duplicado():
     }
 
 
+def test_baixa_anexos_em_paralelo_e_detecta_duplicatas_entre_lotes():
+    downloads = {
+        "url-1": (b"conteudo-repetido", "OK"),
+        "url-2": (b"conteudo-repetido", "OK"),
+        "url-falha": (None, "HTTP 404"),
+    }
+    erros = []
+    duplicados = []
+    analisados = []
+    hashes_baixados = set()
+
+    def analisar(ticket_id, nome, conteudo, uf, duplicado):
+        resultado = (ticket_id, nome, conteudo, uf, duplicado)
+        analisados.append(resultado)
+        return resultado
+
+    primeiro_lote = baixar_e_analisar_anexos_ticket(
+        [
+            {"file_name": "a.pdf", "content_url": "url-1"},
+            {"file_name": "b.pdf", "content_url": "url-2"},
+            {"file_name": "falha.pdf", "content_url": "url-falha"},
+        ],
+        "ticket-1",
+        "AP",
+        hashes_baixados,
+        cancelar=lambda: False,
+        baixar_conteudo=lambda url: downloads[url],
+        analisar_anexo=analisar,
+        ao_erro_download=lambda nome, ticket, status: erros.append((nome, ticket, status)),
+        ao_detectar_duplicado=lambda nome, ticket: duplicados.append((nome, ticket)),
+        max_workers=3,
+    )
+
+    segundo_lote = baixar_e_analisar_anexos_ticket(
+        [{"file_name": "c.pdf", "content_url": "url-1"}],
+        "ticket-2",
+        "AP",
+        hashes_baixados,
+        cancelar=lambda: False,
+        baixar_conteudo=lambda url: downloads[url],
+        analisar_anexo=analisar,
+        ao_erro_download=lambda nome, ticket, status: erros.append((nome, ticket, status)),
+        ao_detectar_duplicado=lambda nome, ticket: duplicados.append((nome, ticket)),
+    )
+
+    assert len(primeiro_lote) == 2
+    assert sorted(resultado[4] for resultado in primeiro_lote) == [False, True]
+    assert segundo_lote == [("ticket-2", "c.pdf", b"conteudo-repetido", "AP", True)]
+    assert erros == [("falha.pdf", "ticket-1", "HTTP 404")]
+    assert len(duplicados) == 2
+    assert len(analisados) == 3
+
+
+def test_baixa_anexos_cancelados_sem_iniciar_download():
+    chamadas_download = []
+    resultado = baixar_e_analisar_anexos_ticket(
+        [{"file_name": "a.pdf", "content_url": "url"}],
+        "ticket-1",
+        "AL",
+        set(),
+        cancelar=lambda: True,
+        baixar_conteudo=lambda url: chamadas_download.append(url) or (b"pdf", "OK"),
+        analisar_anexo=lambda *_args: pytest.fail("não deve analisar anexo cancelado"),
+        ao_erro_download=lambda *_args: pytest.fail("não deve registrar erro de download"),
+        ao_detectar_duplicado=lambda *_args: pytest.fail("não deve detectar duplicata"),
+    )
+
+    assert resultado == []
+    assert chamadas_download == []
+
+
+def test_processa_anexos_ticket_coleta_classifica_e_define_quarentena():
+    downloads = {
+        "https://example.com/attachment/guia.pdf": (b"dar", "OK"),
+        "url-comentario": (b"outro", "OK"),
+    }
+
+    resultado = processar_anexos_ticket(
+        "ticket-123",
+        {"description": "Comprovante: https://example.com/attachment/guia.pdf"},
+        [
+            {
+                "attachments": [
+                    {"file_name": "outro.pdf", "content_url": "url-comentario"}
+                ]
+            }
+        ],
+        "AL",
+        set(),
+        cancelar=lambda: False,
+        baixar_conteudo=lambda url: downloads[url],
+        analisar_anexo=lambda ticket_id, nome, conteudo, uf, duplicado: {
+            "tid": ticket_id,
+            "nome": nome,
+            "uf_final": uf,
+            "is_dar": nome == "anexo_ticket-123.pdf",
+            "is_termo": False,
+            "is_nota": False,
+            "is_duplicado": duplicado,
+            "is_vencido": False,
+        },
+        ao_erro_download=lambda *_args: pytest.fail("download deveria ter sucesso"),
+        ao_detectar_duplicado=lambda *_args: pytest.fail("anexos são únicos"),
+    )
+
+    assert {anexo["nome"] for anexo in resultado.anexos} == {
+        "anexo_ticket-123.pdf",
+        "outro.pdf",
+    }
+    assert resultado.em_quarentena is True
+    assert resultado.motivo_quarentena == "Falta Termo"
+
+
 def test_determina_uf_por_pdf_com_fallback_para_tag_ou_al():
     pdfs = [
         ("geral.pdf", "texto geral", b"1"),
@@ -229,6 +385,21 @@ def test_determina_uf_por_pdf_com_fallback_para_tag_ou_al():
     assert determinar_uf_ticket(pdfs[:1], "GERAL", identificar) == "AL"
 
 
+@pytest.mark.parametrize(
+    ("ticket", "texto_pdf", "esperado"),
+    [
+        ({"tags": ["ms"]}, "GOVERNO DO ESTADO DO AMAPÁ", "AP"),
+        (None, "SEFAZ/SP", "SP"),
+        (None, "SEFAZ/XX UF=MG", "MG"),
+        ({"tags": ["sp", "pa"]}, "", "PA"),
+        ({"tags": ["estado_invalido"]}, "", "GERAL"),
+        (None, "SEFAZ/XX UF=XX", "GERAL"),
+    ],
+)
+def test_identifica_uf_por_texto_pdf_e_tags_do_ticket(ticket, texto_pdf, esperado):
+    assert identificar_uf_ticket(ticket, texto_pdf) == esperado
+
+
 def test_mapeia_termos_e_ctes_de_ticket_geral():
     texto = "Termo 123456 CTe 35260904884082000135570020093542021093542025"
 
@@ -236,6 +407,56 @@ def test_mapeia_termos_e_ctes_de_ticket_geral():
 
     assert mapa == {"123456": ["35260904884082000135570020093542021093542025"]}
     assert ctes == ["35260904884082000135570020093542021093542025"]
+
+
+def test_processa_ticket_para_planilha_e_define_status_al_incompleto():
+    ticket = {
+        "created_at": "2026-11-09T12:00:00Z",
+        "description": f"123456 {CTE_1}",
+        "tags": ["al"],
+    }
+
+    resultado = processar_ticket_para_planilha(
+        "ticket-123",
+        ticket,
+        [{"attachments": [{"file_name": "guia.pdf", "content_url": "url-guia"}]}],
+        {},
+        padronizar_data=lambda data: f"data:{data}",
+        identificar_uf=lambda dados, texto: (
+            "AL" if dados and "al" in dados.get("tags", []) else "GERAL"
+        ),
+        baixar_conteudo=lambda url: (b"pdf-guia", "OK"),
+        extrair_texto=lambda _conteudo: ("DAR estadual", "OK"),
+        eh_nota_fiscal=lambda _texto, _nome: False,
+        eh_dar=lambda texto: "DAR" in texto,
+        eh_termo=lambda texto: "TERMO" in texto,
+        extrair_remessas_ap=lambda _texto: [],
+        obter_chaves_nfe=lambda _texto, _pdf: [],
+        formatar_numero=lambda numero: numero,
+        separar_guias_ap=lambda _texto: [],
+        extrair_documento=lambda *_args: (
+            "123456",
+            [],
+            "Sem Código",
+            "Sem Código",
+            "Não informado",
+            "Não informado",
+            "AL",
+        ),
+        validar_guia_ap=lambda *_args: (True, "OK"),
+        marcar_ap_processada=str,
+        resumir_nfe_map=lambda _mapa: "{}",
+        ao_log=lambda *_args: None,
+        identificar_layout=lambda *_args, **_kwargs: None,
+    )
+
+    assert resultado.data_ticket == "data:2026-11-09"
+    assert resultado.uf_ticket == "AL"
+    assert resultado.status_conf == "INCOMPLETO: Falta Termo"
+    assert len(resultado.registros) == 1
+    assert resultado.registros[0][0] == "123456"
+    assert resultado.mapa_termo_cte == {"123456": [CTE_1]}
+    assert resultado.lista_ctes_ordenada == [CTE_1]
 
 
 def test_mapeia_remessas_ap_por_linha_e_lista_unica_ordenada():

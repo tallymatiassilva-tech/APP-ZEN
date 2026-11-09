@@ -1,4 +1,3 @@
-import csv
 import ctypes
 import json
 import os
@@ -22,12 +21,7 @@ from bs4 import BeautifulSoup
 
 from src.services import pdf_service as _pdf_service
 from src.services.attachment_service import (
-    calcular_hash_md5,
-    determinar_caminho_arquivo_unico,
-    determinar_diretorio_anexo,
-    determinar_quarentena_al,
-    limpar_nome_anexo,
-    propagar_vencimento_dar_ap,
+    salvar_anexos_processados,
 )
 from src.services.document_classifier import (
     chave_nfe_valida,
@@ -43,12 +37,13 @@ from src.services.document_classifier import (
 )
 from src.services.extraction_service import extrair_documento
 from src.services.fraction_service import (
+    aplicar_resultado_conferencia_fraction,
     armazenar_resultado_cache_fraction,
     atualizar_linha_fraction,
     atualizar_memoria_termo_fraction,
     consultar_ctes_fraction_com_retentativas,
+    consultar_fraction_por_cte,
     determinar_status_conferencia_fraction,
-    extrair_ctes_busca_fraction,
     extrair_ctes_unicos,
     extrair_partes_fraction,
     extrair_resultado_consulta_fraction,
@@ -57,6 +52,7 @@ from src.services.fraction_service import (
     montar_resultado_conferencia_fraction,
     obter_resultado_cache_fraction,
     preparar_evidencias_conferencia_fraction,
+    preparar_itens_pendentes_fraction,
     resposta_fraction_indica_login,
     selecionar_resultado_fraction,
 )
@@ -96,6 +92,10 @@ from src.services.report_rows_service import (
     linhas_relatorio_conciliacao,
     linhas_relatorio_final,
 )
+from src.services.spreadsheet_import_service import (
+    carregar_planilha_conferencia,
+    mesclar_dados_conferencia,
+)
 from src.services.spreadsheet_service import (
     HAS_OPENPYXL,
 )
@@ -126,11 +126,16 @@ from src.services.zendesk_auth_service import limpar_e_formatar_cookie
 from src.services.zendesk_pdf_service import (
     agregar_registros_ticket,
     analisar_anexo_baixado,
+    baixar_e_analisar_anexos_ticket,
+    coletar_anexos_ticket,
     determinar_uf_ticket,
     extrair_pdfs_dos_comentarios,
+    identificar_uf_ticket,
     mapear_termo_cte_ticket,
     ordenar_pdfs_nota_primeiro,
+    processar_anexos_ticket,
     processar_pdfs_ticket,
+    processar_ticket_para_planilha,
 )
 from src.utils.text_mono import (
     documento_esta_vencido,
@@ -1407,7 +1412,6 @@ class ZendeskAppGUI:
         ctk.CTkFrame(sidebar, height=2, fg_color="#CBD5E1").pack(fill="x", pady=12, padx=15)
 
         add_btn("💾 Relatório final", self.BTN_BAIXA, "salvar_final")
-        add_btn("🔗 Consolidar planilhas", self.BTN_NEUTRO, "unificar_planilhas")
 
         ctk.CTkFrame(sidebar, height=2, fg_color="#CBD5E1").pack(fill="x", pady=12, padx=15)
         add_btn("⏹ Cancelar operação", self.BTN_CANC, "solicitar_cancelamento")
@@ -1429,7 +1433,6 @@ class ZendeskAppGUI:
             )
             btn.pack(pady=4, anchor="center")
 
-        add_btn_claro("💬 Resposta Zendesk", "guias")
         add_btn_claro("🕘 Histórico tickets", "visualizar_app")
         add_btn_claro("🌐 Abrir navegador", "abrir")
         add_btn_claro("🧹 Limpar cache tomador", "limpar_cache_tomadores")
@@ -1915,131 +1918,7 @@ class ZendeskAppGUI:
         return tickets
 
     def _identificar_uf(self, ticket_data: dict | None, txt_pdf: str = "") -> str:
-        UFS_VALIDAS = {
-            "AC",
-            "AL",
-            "AP",
-            "AM",
-            "BA",
-            "CE",
-            "DF",
-            "ES",
-            "GO",
-            "MA",
-            "MT",
-            "MS",
-            "MG",
-            "PA",
-            "PB",
-            "PR",
-            "PE",
-            "PI",
-            "RJ",
-            "RN",
-            "RS",
-            "RO",
-            "RR",
-            "SC",
-            "SP",
-            "SE",
-            "TO",
-        }
-        if txt_pdf:
-            txt_upper = txt_pdf.upper()
-
-            mapa_nomes = [
-                ("GOVERNO DO ESTADO DO AMAPÁ", "AP"),
-                ("GOVERNO DO ESTADO DO ACRE", "AC"),
-                ("GOVERNO DO ESTADO DO PARÁ", "PA"),
-                ("GOVERNO DO ESTADO DO PARA", "PA"),
-                ("ESTADO DO MATO GROSSO DO SUL", "MS"),
-                ("MATO GROSSO DO SUL", "MS"),
-                ("ESPÍRITO SANTO", "ES"),
-                ("ESPIRITO SANTO", "ES"),
-                ("RIO GRANDE DO NORTE", "RN"),
-                ("RIO GRANDE DO SUL", "RS"),
-                ("DISTRITO FEDERAL", "DF"),
-                ("MINAS GERAIS", "MG"),
-                ("SANTA CATARINA", "SC"),
-                ("RIO DE JANEIRO", "RJ"),
-                ("SÃO PAULO", "SP"),
-                ("SAO PAULO", "SP"),
-                ("PERNAMBUCO", "PE"),
-                ("MARANHÃO", "MA"),
-                ("MARANHAO", "MA"),
-                ("TOCANTINS", "TO"),
-                ("AMAZONAS", "AM"),
-                ("RONDÔNIA", "RO"),
-                ("RONDONIA", "RO"),
-                ("RORAIMA", "RR"),
-                ("PARAÍBA", "PB"),
-                ("PARAIBA", "PB"),
-                ("ALAGOAS", "AL"),
-                ("SERGIPE", "SE"),
-                ("PIAUÍ", "PI"),
-                ("PIAUI", "PI"),
-                ("CEARÁ", "CE"),
-                ("CEARA", "CE"),
-                ("GOIÁS", "GO"),
-                ("GOIAS", "GO"),
-                ("BAHIA", "BA"),
-                ("MATO GROSSO", "MT"),
-                ("AMAPÁ", "AP"),
-                ("AMAPA", "AP"),
-            ]
-            for nome_est, uf_code in mapa_nomes:
-                if re.search(r"\b" + re.escape(nome_est) + r"\b", txt_upper):
-                    return uf_code
-
-            if re.search(r"\bPARÁ\b|\bSEFAZ[/\s-]*PA\b|\bESTADO\s+DO\s+PAR[AÁ]\b", txt_upper):
-                return "PA"
-
-            if re.search(r"\bACRE\b", txt_upper):
-                return "AC"
-
-            m_sefaz = re.search(r"\bSEFAZ[/\s-]*([A-Z]{2})\b", txt_upper)
-            if m_sefaz and m_sefaz.group(1) in UFS_VALIDAS:
-                return m_sefaz.group(1)
-
-            m_uf = re.search(r"\bUF\s*[:=]?\s*([A-Z]{2})\b", txt_upper)
-            if m_uf and m_uf.group(1) in UFS_VALIDAS:
-                return m_uf.group(1)
-
-        if ticket_data:
-            tags = [str(t).lower() for t in ticket_data.get("tags", [])]
-            for uf_candidate in [
-                "ap",
-                "ms",
-                "ac",
-                "al",
-                "am",
-                "ba",
-                "ce",
-                "df",
-                "es",
-                "go",
-                "ma",
-                "mt",
-                "mg",
-                "pa",
-                "pb",
-                "pr",
-                "pe",
-                "pi",
-                "rj",
-                "rn",
-                "rs",
-                "ro",
-                "rr",
-                "sc",
-                "sp",
-                "se",
-                "to",
-            ]:
-                if uf_candidate in tags:
-                    return uf_candidate.upper()
-
-        return "GERAL"
+        return identificar_uf_ticket(ticket_data, txt_pdf)
 
     def iniciar_thread(self, acao: str):
         if acao == "solicitar_cancelamento":
@@ -2102,7 +1981,6 @@ class ZendeskAppGUI:
 
         tickets = self.obter_lista_tickets()
         if not tickets and acao in [
-            "guias",
             "planilha",
             "anexos",
             "abrir",
@@ -2121,7 +1999,6 @@ class ZendeskAppGUI:
             return
 
         acoes_dir = {
-            "guias": lambda: self._acao_guias(tickets),
             "abrir": lambda: [
                 webbrowser.open(
                     f"https://{self._api_pronto().subdomain}.zendesk.com/agent/tickets/{t}"
@@ -2187,31 +2064,6 @@ class ZendeskAppGUI:
                         daemon=True,
                     ).start()
 
-        elif acao == "unificar_planilhas":
-            arqs = filedialog.askopenfilenames(
-                title="Selecione as planilhas para unir:",
-                filetypes=[("Planilhas", "*.csv;*.xlsx;*.xls")],
-                initialdir=self.ultimo_dir_base,
-            )
-            if arqs:
-                self.ultimo_dir_base = os.path.dirname(arqs[0])
-                self.salvar_memoria_diaria()
-                arq_saida = filedialog.asksaveasfilename(
-                    title="Onde salvar a Planilha Unificada?",
-                    initialdir=self.ultimo_dir_base,
-                    initialfile=f"Consolidado_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
-                    defaultextension=".xlsx",
-                    filetypes=[("Excel Workbooks", "*.xlsx"), ("CSV", "*.csv")],
-                )
-                if arq_saida:
-                    self.ultimo_dir_base = os.path.dirname(arq_saida)
-                    self.salvar_memoria_diaria()
-                    threading.Thread(
-                        target=self._acao_unificar_planilhas_arquivos,
-                        args=(list(arqs), arq_saida),
-                        daemon=True,
-                    ).start()
-
         elif acao == "salvar_final":
             arq = filedialog.asksaveasfilename(
                 title="Onde salvar o Relatório Final?",
@@ -2226,30 +2078,6 @@ class ZendeskAppGUI:
                 threading.Thread(
                     target=self._acao_salvar_relatorio_final, args=(arq,), daemon=True
                 ).start()
-
-    @registrar_execucao("Resposta automática de tickets")
-    def _acao_guias(self, tickets: list[str]):
-        msg = (
-            "Bom dia, guias encaminhadas para pagamento."
-            if datetime.now().hour < 12
-            else "Boa tarde, guias encaminhadas para pagamento."
-        )
-        sucessos = 0
-
-        self.log(f"[Zendesk] Iniciando resposta automática de {len(tickets)} ticket(s)...")
-        for i, tid in enumerate(tickets, 1):
-            if self.cancelar_operacao:
-                break
-            log_terminal("PROGRESSO", f"Processando ticket {i} de {len(tickets)}: #{tid}...")
-            if self._api_pronto().responder_ticket(tid, msg, "solved"):
-                sucessos += 1
-                self.log(f"[✓] Ticket #{tid} respondido e resolvido.")
-            else:
-                self.log(f"[!] Falha ao responder ticket #{tid}.")
-            self.atualizar_progresso(i, len(tickets))
-
-        self.copiar_para_clipboard(msg)
-        self.log(f"[🏆] {sucessos} tickets processados na API. Mensagem copiada.")
 
     @registrar_execucao("Download e organização de anexos")
     def _acao_anexos(self, tickets: list[str], pasta_destino: str):
@@ -2269,45 +2097,6 @@ class ZendeskAppGUI:
         self.salvar_memoria_diaria()
 
         hashes_baixados = set()
-        lock_hashes = threading.Lock()
-
-        def baixar_e_analisar(anexo, tid, uf_ticket_tag):
-            if self.cancelar_operacao:
-                return None
-            nome = str(anexo["file_name"])
-            nome_limpo = limpar_nome_anexo(nome)
-            conteudo, status_download = self._api_pronto().baixar_conteudo(anexo["content_url"])
-
-            if not conteudo:
-                self.log(f"[!] Erro ao baixar '{nome}' (Ticket #{tid}): {status_download}")
-                return None
-
-            md5_hash = calcular_hash_md5(conteudo)
-            is_duplicado = False
-            with lock_hashes:
-                if md5_hash in hashes_baixados:
-                    is_duplicado = True
-                    self.log(f"[!] Arquivo duplicado detectado: '{nome_limpo}' (Ticket #{tid}).")
-                else:
-                    hashes_baixados.add(md5_hash)
-
-            return analisar_anexo_baixado(
-                tid,
-                nome,
-                conteudo,
-                uf_ticket_tag,
-                is_duplicado,
-                extrair_texto=extrair_texto_pdf,
-                identificar_uf=lambda texto: self._identificar_uf(None, texto),
-                identificar_layout=self.gerenciador_layouts.identificar_e_extrair,
-                eh_dar=e_dar_documento,
-                eh_termo=e_termo_documento,
-                eh_nota_fiscal=e_nota_fiscal,
-                extrair_vencimento_valor=extrair_vencimento_e_valor_pdf,
-                padronizar_data=padronizar_data_ddmmyyyy,
-                documento_vencido=documento_esta_vencido,
-                extrair_vencimento_nota=extrair_vencimento_nota,
-            )
 
         for i, tid in enumerate(tickets, 1):
             if self.cancelar_operacao:
@@ -2322,65 +2111,55 @@ class ZendeskAppGUI:
                 continue
 
             uf_ticket_tag = self._identificar_uf(t_data)
-            anexos_para_baixar = []
-
-            if "description" in t_data:
-                for match_url in re.findall(
-                    r'https?://[^\s<>"]+attachment[^\s<>"]+', t_data["description"]
-                ):
-                    anexos_para_baixar.append(
-                        {"file_name": f"anexo_{tid}.pdf", "content_url": match_url}
+            resultado_anexos = processar_anexos_ticket(
+                tid,
+                t_data,
+                self._api_pronto().obter_comentarios(tid),
+                uf_ticket_tag,
+                hashes_baixados,
+                cancelar=lambda: self.cancelar_operacao,
+                baixar_conteudo=self._api_pronto().baixar_conteudo,
+                analisar_anexo=lambda ticket_id, nome, conteudo, uf, duplicado: (
+                    analisar_anexo_baixado(
+                        ticket_id,
+                        nome,
+                        conteudo,
+                        uf,
+                        duplicado,
+                        extrair_texto=extrair_texto_pdf,
+                        identificar_uf=lambda texto: self._identificar_uf(None, texto),
+                        identificar_layout=self.gerenciador_layouts.identificar_e_extrair,
+                        eh_dar=e_dar_documento,
+                        eh_termo=e_termo_documento,
+                        eh_nota_fiscal=e_nota_fiscal,
+                        extrair_vencimento_valor=extrair_vencimento_e_valor_pdf,
+                        padronizar_data=padronizar_data_ddmmyyyy,
+                        documento_vencido=documento_esta_vencido,
+                        extrair_vencimento_nota=extrair_vencimento_nota,
                     )
-
-            for com in self._api_pronto().obter_comentarios(tid):
-                anexos_para_baixar.extend(com.get("attachments", []))
-
-            anexos_processados = []
-            with ThreadPoolExecutor(max_workers=8) as executor:
-                futuros = [
-                    executor.submit(baixar_e_analisar, anexo, tid, uf_ticket_tag)
-                    for anexo in anexos_para_baixar
-                ]
-                for futuro in as_completed(futuros):
-                    res = futuro.result()
-                    if res:
-                        anexos_processados.append(res)
-
-            em_quarentena, motivo = determinar_quarentena_al(
-                uf_ticket_tag, anexos_processados
+                ),
+                ao_erro_download=lambda nome, ticket_id, status: self.log(
+                    f"[!] Erro ao baixar '{nome}' (Ticket #{ticket_id}): {status}"
+                ),
+                ao_detectar_duplicado=lambda nome, ticket_id: self.log(
+                    f"[!] Arquivo duplicado detectado: '{nome}' (Ticket #{ticket_id})."
+                ),
             )
-            if em_quarentena:
+
+            if resultado_anexos.em_quarentena:
                 self.log(
-                    f"[⚠️ INCONSISTÊNCIA] Ticket #{tid}: {motivo}. Enviando para 'QUARENTENA'."
+                    f"[⚠️ INCONSISTÊNCIA] Ticket #{tid}: "
+                    f"{resultado_anexos.motivo_quarentena}. Enviando para 'QUARENTENA'."
                 )
 
-            propagar_vencimento_dar_ap(uf_ticket_tag, anexos_processados)
-
-            for item in anexos_processados:
-                estado_dir = item["uf_final"]
-                subpasta_final = item["subpasta"]
-
-                caminho_dir = determinar_diretorio_anexo(
-                    pasta_destino,
-                    estado_dir,
-                    subpasta_final,
-                    item["is_dar"],
-                    item["is_nota"],
-                    item["is_duplicado"],
-                    item["is_vencido"],
-                    em_quarentena,
-                )
-                Path(caminho_dir).mkdir(parents=True, exist_ok=True)
-
-                caminho_arquivo = determinar_caminho_arquivo_unico(
-                    caminho_dir, item["nome_limpo"]
-                )
-
-                with open(caminho_arquivo, "wb") as f:
-                    f.write(item["conteudo"])
+            salvar_anexos_processados(
+                pasta_destino, resultado_anexos.anexos, resultado_anexos.em_quarentena
+            )
 
             self.log(
-                f"[✓] Ticket #{tid} ({uf_ticket_tag}): {len(anexos_processados)} anexo(s) salvo(s) na estrutura do estado {uf_ticket_tag}."
+                f"[✓] Ticket #{tid} ({uf_ticket_tag}): "
+                f"{len(resultado_anexos.anexos)} anexo(s) salvo(s) "
+                f"na estrutura do estado {uf_ticket_tag}."
             )
             self.salvar_checkpoint(f"ticket de anexos #{tid}")
             self.atualizar_progresso(i, len(tickets))
@@ -2411,73 +2190,40 @@ class ZendeskAppGUI:
                 self.log(f"[!] Ticket #{ticket_id} não retornado pela API.")
                 return None
 
-            data_ticket = padronizar_data_ddmmyyyy(str(resp_ticket.get("created_at", ""))[:10])
-            texto_completo = str(resp_ticket.get("description", ""))
-            uf_ticket_tag = self._identificar_uf(resp_ticket)
-
-            pdfs_extraidos = extrair_pdfs_dos_comentarios(
+            resultado_ticket = processar_ticket_para_planilha(
+                ticket_id,
+                resp_ticket,
                 self._api_pronto().obter_comentarios(ticket_id),
-                self._api_pronto().baixar_conteudo,
-                extrair_texto_pdf,
-            )
-
-            pdfs_extraidos = ordenar_pdfs_nota_primeiro(pdfs_extraidos, e_nota_fiscal)
-            uf_ticket = determinar_uf_ticket(
-                pdfs_extraidos,
-                uf_ticket_tag,
-                lambda texto: self._identificar_uf(None, texto),
-            )
-            mapa_termo_cte, lista_ctes_ordenada = mapear_termo_cte_ticket(
-                texto_completo, uf_ticket, extrair_remessas_ap
-            )
-
-            nfe_map, dars_pdf_data = {}, []
-            ids_guias_ap = set()
-            indices_guias_ap = {}
-
-            resultado_pdfs = processar_pdfs_ticket(
-                pdfs_extraidos,
-                uf_ticket,
-                nfe_map,
-                dars_pdf_data,
-                mapa_termo_cte,
-                lista_ctes_ordenada,
-                ids_guias_ap,
-                indices_guias_ap,
                 self.memoria_termos,
-                identificar_uf=lambda texto: self._identificar_uf(None, texto),
+                padronizar_data=padronizar_data_ddmmyyyy,
+                identificar_uf=self._identificar_uf,
+                baixar_conteudo=self._api_pronto().baixar_conteudo,
+                extrair_texto=extrair_texto_pdf,
                 eh_nota_fiscal=e_nota_fiscal,
                 eh_dar=e_dar_documento,
                 eh_termo=e_termo_documento,
+                extrair_remessas_ap=extrair_remessas_ap,
                 obter_chaves_nfe=extrair_chaves_nfe_pdf,
                 formatar_numero=formatar_numero_arquivo,
                 separar_guias_ap=separar_guias_ap,
                 extrair_documento=extrair_documento,
                 validar_guia_ap=validar_guia_ap,
                 marcar_ap_processada=_marcar_status_guia_ap_processada,
-                padronizar_data=padronizar_data_ddmmyyyy,
                 resumir_nfe_map=resumo_nfe_map,
                 ao_log=log_terminal,
                 identificar_layout=self.gerenciador_layouts.identificar_e_extrair,
             )
 
-            status_conf = "OK"
-            if uf_ticket == "AL":
-                if resultado_pdfs.tem_dar_pdf and not resultado_pdfs.tem_termo_pdf:
-                    status_conf = "INCOMPLETO: Falta Termo"
-                elif resultado_pdfs.tem_termo_pdf and not resultado_pdfs.tem_dar_pdf:
-                    status_conf = "INCOMPLETO: Falta Guia (DAR)"
-
             with lock_termos:
                 agregar_registros_ticket(
                     ticket_id,
-                    data_ticket,
-                    dars_pdf_data,
+                    resultado_ticket.data_ticket,
+                    resultado_ticket.registros,
                     termos_map,
-                    mapa_termo_cte,
-                    lista_ctes_ordenada,
-                    nfe_map,
-                    status_conf,
+                    resultado_ticket.mapa_termo_cte,
+                    resultado_ticket.lista_ctes_ordenada,
+                    resultado_ticket.nfe_map,
+                    resultado_ticket.status_conf,
                     campos_al=AL_CAMPOS_PLANILHA,
                     limpar_texto=limpar_texto_excel,
                     formatar_numero=formatar_numero_arquivo,
@@ -2655,64 +2401,6 @@ class ZendeskAppGUI:
         except Exception as e:
             self.log(f"[!] Falha ao atualizar relatório após conciliação: {e}")
 
-    @registrar_execucao("Consolidação de planilhas")
-    def _acao_unificar_planilhas_arquivos(self, lista_arquivos: list[str], caminho_saida: str):
-        self.log(f"[Consolidar] Unindo {len(lista_arquivos)} planilhas...")
-        linhas_unificadas, cabecalho = [], None
-        for idx, caminho_arq in enumerate(lista_arquivos, 1):
-            log_terminal(
-                "PROGRESSO",
-                f"Consolidando planilha {idx} de {len(lista_arquivos)}: {os.path.basename(caminho_arq)}...",
-            )
-            try:
-                if caminho_arq.lower().endswith(".csv"):
-                    with open(caminho_arq, mode="r", encoding="utf-8-sig") as f:
-                        linhas = list(csv.reader(f, delimiter=";"))
-                        if linhas:
-                            if cabecalho is None:
-                                cabecalho = linhas[0]
-                            for row in linhas[1:]:
-                                linhas_unificadas.append([formatar_texto_excel(c) for c in row])
-                else:
-                    try:
-                        import openpyxl
-
-                        wb = openpyxl.load_workbook(caminho_arq, data_only=True)
-                        try:
-                            sheet = wb.active
-                            if sheet is None:
-                                raise RuntimeError("A planilha não possui uma aba ativa")
-                            linhas = list(sheet.iter_rows(values_only=True))
-                            if linhas:
-                                if cabecalho is None:
-                                    cabecalho = [str(c or "") for c in linhas[0]]
-                                for row in linhas[1:]:
-                                    linhas_unificadas.append(
-                                        [formatar_texto_excel(str(c or "")) for c in row]
-                                    )
-                        finally:
-                            wb.close()
-                    except ImportError:
-                        pass
-            except Exception as e:  # noqa: BLE001
-                print(f"[Erro Consolidação] Falha ao ler {caminho_arq}: {e}")
-            self.atualizar_progresso(idx, len(lista_arquivos))
-
-        if linhas_unificadas and cabecalho:
-            caminho_gerado = salvar_planilha_multisheets(
-                caminho_saida,
-                cabecalho,
-                linhas_unificadas,
-            )
-            self.log(f"[🏆] Salvo: {caminho_gerado}")
-            self.exibir_mensagem(
-                "info",
-                "Sucesso",
-                f"Planilhas unificadas!\n\nSalvo em: {caminho_gerado}",
-            )
-        else:
-            self.log("[!] Falha na unificação.")
-
     @registrar_execucao("Carregamento de planilha de conferência (Excel/CSV)")
     def _acao_carregar_planilha_conferencia(self, caminho_arquivo: str):
         self.log(
@@ -2729,278 +2417,42 @@ class ZendeskAppGUI:
                 "[Limpeza] Dados da planilha anterior e cache de tomadores limpos com sucesso."
             )
 
-            linhas = []
-            cabecalho = []
-
-            # --- LEITURA DE ARQUIVOS CSV ---
-            if caminho_arquivo.lower().endswith(".csv"):
-                with open(caminho_arquivo, mode="r", encoding="utf-8-sig") as f:
-                    leitor = list(csv.reader(f, delimiter=";"))
-                    if leitor:
-                        cabecalho = [str(c).strip().upper() for c in leitor[0]]
-                        linhas = leitor[1:]
-
-            # --- LEITURA DE ARQUIVOS EXCEL (.XLSX / .XLS) ---
-            elif HAS_OPENPYXL:
-                import openpyxl
-
-                wb = openpyxl.load_workbook(caminho_arquivo, data_only=True)
-                try:
-                    abas_lidas = 0
-                    dados_abas = []
-                    for ws in wb.worksheets:
-                        dados_aba = list(ws.iter_rows(values_only=True))
-                        if not dados_aba:
-                            continue
-
-                        cabecalho_aba = [str(c or "").strip().upper() for c in dados_aba[0]]
-                        if not any(cabecalho_aba):
-                            continue
-                        dados_abas.append((cabecalho_aba, dados_aba[1:]))
-                        abas_lidas += 1
-
-                    colunas_unificadas = []
-                    for cabecalho_aba, _ in dados_abas:
-                        for nome in cabecalho_aba:
-                            if nome and nome not in colunas_unificadas:
-                                colunas_unificadas.append(nome)
-                    cabecalho = colunas_unificadas
-
-                    for cabecalho_aba, linhas_aba in dados_abas:
-                        mapa_colunas = {
-                            nome: indice for indice, nome in enumerate(cabecalho_aba) if nome
-                        }
-                        for linha_aba in linhas_aba:
-                            linha_alinhada = [None] * len(cabecalho)
-                            for indice, nome in enumerate(cabecalho):
-                                indice_origem = mapa_colunas.get(nome)
-                                if indice_origem is not None and indice_origem < len(linha_aba):
-                                    linha_alinhada[indice] = linha_aba[indice_origem]
-                            linhas.append(tuple(linha_alinhada))
-
-                    nomes_identidade = {
-                        "TERMO/CONTROLE",
-                        "TICKET",
-                        "CTE / REMESSA",
-                        "NÚMERO ARQUIVO",
-                        "CHAVE ARQUIVO (55)",
-                        "DACTE (57)",
-                    }
-                    indices_identidade = [
-                        indice for indice, nome in enumerate(cabecalho) if nome in nomes_identidade
-                    ]
-                    linhas_unicas = []
-                    identidades_vistas = set()
-                    for linha in linhas:
-                        identidade = tuple(
-                            limpar_texto_excel(str(linha[indice] or "")).strip().upper()
-                            for indice in indices_identidade
-                            if indice < len(linha)
-                        )
-                        identidade_completa = (
-                            identidade
-                            if any(identidade)
-                            else tuple(str(valor or "") for valor in linha)
-                        )
-                        if identidade_completa not in identidades_vistas:
-                            identidades_vistas.add(identidade_completa)
-                            linhas_unicas.append(linha)
-                    removidas = len(linhas) - len(linhas_unicas)
-                    linhas = linhas_unicas
-
-                    if abas_lidas:
-                        self.log(
-                            f"[Excel] {abas_lidas} aba(s) lida(s), {len(linhas)} registro(s) único(s) carregado(s); {removidas} duplicado(s) ignorado(s)."
-                        )
-                finally:
-                    wb.close()
-            else:
+            if not caminho_arquivo.lower().endswith(".csv") and not HAS_OPENPYXL:
                 return self.log("[!] Biblioteca 'openpyxl' não encontrada para ler .xlsx.")
 
-            if not linhas or not cabecalho:
-                return self.log("[!] Planilha vazia ou formato inválido.")
+            resultado_importacao = carregar_planilha_conferencia(
+                caminho_arquivo,
+                campos_al=AL_CAMPOS_PLANILHA,
+                limpar_texto=limpar_texto_excel,
+                padronizar_data=padronizar_data_ddmmyyyy,
+                timestamp=timestamp_processamento,
+                ao_progresso=lambda atual, total: log_terminal(
+                    "PROGRESSO", f"Carregando registro {atual} de {total}..."
+                ),
+            )
+            novos_dados = resultado_importacao.dados
+            termos_lidos = len(novos_dados)
 
-            # Mapeamento dinâmico de colunas
-            idx_map = {}
-            for i, col_name in enumerate(cabecalho):
-                nome_clean = str(col_name).strip()
-                if nome_clean in AL_CAMPOS_PLANILHA:
-                    idx_map[nome_clean] = i
-                elif "TERMO" in nome_clean or "CONTROLE" in nome_clean:
-                    idx_map["TERMO"] = i
-                elif (
-                    ("CPF" in nome_clean and "CNPJ" in nome_clean)
-                    and "R/S/U/V" not in nome_clean
-                    and "EM R" not in nome_clean
-                ):
-                    idx_map["CPF/CNPJ DA GUIA"] = i
-                elif "UF" in nome_clean:
-                    idx_map["UF"] = i
-                elif "TICKET" in nome_clean:
-                    idx_map["TICKET"] = i
-                elif "STATUS" in nome_clean:
-                    idx_map["STATUS CONFERÊNCIA"] = i
-                elif "ORIGINAL" in nome_clean:
-                    idx_map["CODIGO BARRAS ORIGINAL"] = i
-                elif "(44)" in nome_clean or (
-                    "BARRAS" in nome_clean and "ORIGINAL" not in nome_clean
-                ):
-                    idx_map["CODIGO BARRAS"] = i
-                elif "DATA PROCESSAMENTO" in nome_clean:
-                    idx_map["DATA PROCESSAMENTO"] = i
-                elif "DATA" in nome_clean:
-                    idx_map["DATA"] = i
-                elif "VENCIMENTO" in nome_clean:
-                    idx_map["VENCIMENTO"] = i
-                elif "VALOR" in nome_clean:
-                    idx_map["VALOR"] = i
-                elif (
-                    "CTE / REMESSA" == nome_clean or "CTE" == nome_clean or "REMESSA" in nome_clean
-                ):
-                    idx_map["CTE / REMESSA"] = i
-                elif "TOMADOR" in nome_clean:
-                    idx_map["TOMADOR"] = i
-                elif "NÚMERO ARQUIVO" in nome_clean:
-                    idx_map["NÚMERO ARQUIVO"] = i
-                elif "CHAVE" in nome_clean:
-                    idx_map["CHAVE ARQUIVO"] = i
-                elif "DACTE" in nome_clean:
-                    idx_map["DACTE"] = i
-
-            novos_dados = []
-            termos_lidos = 0
-
-            for row in linhas:
-                if not any(row):
-                    continue
-                log_terminal(
-                    "PROGRESSO",
-                    f"Carregando registro {termos_lidos + 1} de {len(linhas)}...",
+            if resultado_importacao.abas_lidas:
+                self.log(
+                    f"[Excel] {resultado_importacao.abas_lidas} aba(s) lida(s), "
+                    f"{resultado_importacao.linhas_lidas} registro(s) único(s) carregado(s); "
+                    f"{resultado_importacao.duplicados_ignorados} duplicado(s) ignorado(s)."
                 )
 
-                def get_val(key):
-                    idx = idx_map.get(key, -1)
-                    if idx != -1 and idx < len(row):
-                        v_raw = row[idx]
-                        if v_raw is None:
-                            return ""
-                        v_str = str(v_raw).strip()
-                        if v_str.endswith(".0") and re.match(r"^\d+\.0$", v_str):
-                            v_str = v_str[:-2]
-                        return limpar_texto_excel(v_str)
-                    return ""
-
-                termo_val = get_val("TERMO")
-                if not termo_val:
-                    continue
-
-                cte_val = get_val("CTE / REMESSA")
-                if not cte_val:
-                    cte_val = get_val("CTE")
-                num_arq_val = get_val("NÚMERO ARQUIVO")
-
-                item = {
-                    "TERMO": termo_val,
-                    "UF": get_val("UF") or "GERAL",
-                    "CPF/CNPJ DA GUIA": get_val("CPF/CNPJ DA GUIA"),
-                    "TICKET": get_val("TICKET"),
-                    "STATUS CONFERÊNCIA": get_val("STATUS CONFERÊNCIA") or "OK",
-                    "DATA": padronizar_data_ddmmyyyy(get_val("DATA")),
-                    "VENCIMENTO": padronizar_data_ddmmyyyy(get_val("VENCIMENTO"))
-                    or "Não informado",
-                    "VALOR": get_val("VALOR") or "Não informado",
-                    "CTE / REMESSA": cte_val if cte_val else "Sem CTE",
-                    "CHAVE ARQUIVO": get_val("CHAVE ARQUIVO") or "Sem Arquivo Válido",
-                    "DACTE": get_val("DACTE") or "Sem DACTE",
-                    "NÚMERO ARQUIVO": num_arq_val if num_arq_val else "Sem Número",
-                    "CODIGO BARRAS ORIGINAL": get_val("CODIGO BARRAS ORIGINAL") or "Sem Código",
-                    "CODIGO BARRAS": get_val("CODIGO BARRAS") or "Sem Código",
-                    "TOMADOR": get_val("TOMADOR") or "Aguardando Conciliação",
-                    "DATA PROCESSAMENTO": get_val("DATA PROCESSAMENTO")
-                    or timestamp_processamento(),
-                    **{campo: get_val(campo) for campo in AL_CAMPOS_PLANILHA},
-                }
-                novos_dados.append(item)
-                termos_lidos += 1
+            if not resultado_importacao.linhas_lidas or not resultado_importacao.tem_cabecalho:
+                return self.log("[!] Planilha vazia ou formato inválido.")
 
             with self.lock:
                 self.dados_em_memoria = novos_dados
-
-                for item in novos_dados:
-                    termo = item["TERMO"]
-                    if termo not in self.memoria_termos:
-                        self.memoria_termos[termo] = {
-                            k: []
-                            for k in [
-                                "TICKET",
-                                "UF",
-                                "CPF/CNPJ DA GUIA",
-                                "DATA",
-                                "VENCIMENTO",
-                                "VALOR",
-                                "CTE / REMESSA",
-                                "CHAVE ARQUIVO",
-                                "DACTE",
-                                "NÚMERO ARQUIVO",
-                                "CODIGO BARRAS ORIGINAL",
-                                "CODIGO BARRAS",
-                                *AL_CAMPOS_PLANILHA,
-                            ]
-                        }
-
-                    self.memoria_termos[termo]["STATUS CONFERÊNCIA"] = item["STATUS CONFERÊNCIA"]
-                    self.memoria_termos[termo]["TOMADOR"] = item["TOMADOR"]
-                    self.memoria_termos[termo]["DATA PROCESSAMENTO"] = item["DATA PROCESSAMENTO"]
-
-                    for k in [
-                        "TICKET",
-                        "UF",
-                        "CPF/CNPJ DA GUIA",
-                        "DATA",
-                        "VENCIMENTO",
-                        "VALOR",
-                        "CTE / REMESSA",
-                        "CHAVE ARQUIVO",
-                        "DACTE",
-                        "NÚMERO ARQUIVO",
-                        "CODIGO BARRAS ORIGINAL",
-                        "CODIGO BARRAS",
-                        *AL_CAMPOS_PLANILHA,
-                    ]:
-                        val = item.get(k, "")
-                        partes = (
-                            separar_valores_monetarios(val)
-                            if k == "VALOR"
-                            else (
-                                [p.strip() for p in val.split(",")]
-                                if k in ["DATA", "VENCIMENTO", "UF"]
-                                else (
-                                    [val.strip()]
-                                    if k in AL_CAMPOS_PLANILHA
-                                    else [p.strip() for p in val.split(" ")]
-                                )
-                            )
-                        )
-                        for p in partes:
-                            p_fmt = (
-                                padronizar_data_ddmmyyyy(p)
-                                if k in ["DATA", "VENCIMENTO"]
-                                else (normalizar_valor_monetario(p) if k == "VALOR" else p)
-                            )
-                            if (
-                                p_fmt
-                                and p_fmt not in self.memoria_termos[termo][k]
-                                and p_fmt
-                                not in [
-                                    "Sem CTE",
-                                    "Sem Código",
-                                    "Sem Arquivo Válido",
-                                    "Sem DACTE",
-                                    "Sem Número",
-                                    "Não informado",
-                                ]
-                            ):
-                                self.memoria_termos[termo][k].append(p_fmt)
+                mesclar_dados_conferencia(
+                    novos_dados,
+                    self.memoria_termos,
+                    campos_al=AL_CAMPOS_PLANILHA,
+                    padronizar_data=padronizar_data_ddmmyyyy,
+                    normalizar_valor=normalizar_valor_monetario,
+                    separar_valores=separar_valores_monetarios,
+                )
 
             self.salvar_memoria_diaria()
             self.atualizar_tabela_gui()
@@ -3027,30 +2479,26 @@ class ZendeskAppGUI:
             return self.log("[!] Base vazia na tela. Extraia os dados da conferência primeiro.")
 
         cookie_invalido = False
-        itens_pendentes = []
 
         with self.lock:
-            for item in self.dados_em_memoria:
-                uf_item = str(item.get("UF", "")).strip().upper()
-                status_item = str(item.get("STATUS CONFERÊNCIA", "")).strip().upper()
-                if uf_item == "AP" and status_item.startswith("INCOMPLETO: CHAVE"):
-                    termo_ignorado = item.get("TERMO", "Desconhecido")
-                    self.log(
-                        f"[⚠️ CONFERÊNCIA MANUAL] Guia AP #{termo_ignorado}: "
-                        f"{item.get('STATUS CONFERÊNCIA', 'divergência de chave')}. "
-                        "A pesquisa no Fraction continuará."
-                    )
+            preparacao_fraction = preparar_itens_pendentes_fraction(self.dados_em_memoria)
 
-                candidatos_cte = extrair_ctes_busca_fraction(item)
+        for item in preparacao_fraction.guias_ap_chave_incompleta:
+            termo_ignorado = item.get("TERMO", "Desconhecido")
+            self.log(
+                f"[⚠️ CONFERÊNCIA MANUAL] Guia AP #{termo_ignorado}: "
+                f"{item.get('STATUS CONFERÊNCIA', 'divergência de chave')}. "
+                "A pesquisa no Fraction continuará."
+            )
 
-                # REGRA ESTRITA: O número do Termo JAMAIS entra na busca. Se não houver CTe, ignora a busca no Fraction.
-                if candidatos_cte:
-                    itens_pendentes.append((item, candidatos_cte))
-                else:
-                    termo_ignorado = item.get("TERMO", "Desconhecido")
-                    self.log(
-                        f"[i] Termo #{termo_ignorado} -> Busca no Fraction ignorada (Sem CTe na coluna 'CTE / REMESSA')."
-                    )
+        for item in preparacao_fraction.itens_sem_cte:
+            termo_ignorado = item.get("TERMO", "Desconhecido")
+            self.log(
+                f"[i] Termo #{termo_ignorado} -> Busca no Fraction ignorada "
+                "(Sem CTe na coluna 'CTE / REMESSA')."
+            )
+
+        itens_pendentes = preparacao_fraction.itens_pendentes
 
         if not itens_pendentes:
             return self.log(
@@ -3065,19 +2513,15 @@ class ZendeskAppGUI:
 
         _thread_local = threading.local()
 
+        def marcar_cookie_fraction_expirado() -> None:
+            nonlocal cookie_invalido
+            cookie_invalido = True
+            self.log("[ERRO] Sessão/Cookie Fraction expirado! Atualize a credencial.")
+
         def consultar_e_ler_pagina_fraction(cte_code):
             """Pesquisa exclusivamente pelo CTe no Fraction Web enviando o parâmetro do filtro Conhecimento e lê os dados da tela."""
-            nonlocal cookie_invalido
             if self.cancelar_operacao or cookie_invalido:
                 return cte_code, None, {}
-
-            # 1. Verifica cache em memória
-            with self.lock:
-                resultado_cache = obter_resultado_cache_fraction(
-                    self.ctes_consultados_cache, cte_code
-                )
-                if resultado_cache is not None:
-                    return cte_code, resultado_cache[0], resultado_cache[1]
 
             if not hasattr(_thread_local, "session"):
                 s = requests.Session()
@@ -3090,129 +2534,21 @@ class ZendeskAppGUI:
                 )
                 _thread_local.session = s
 
-            session = _thread_local.session
-
-            urls_para_testar = ["https://jadlog.com.br/FractionWeb/jad/pesquisar"]
-
-            formulario_localizado = False
-            for url in urls_para_testar:
-                try:
-                    pagina = session.get(url, timeout=15)
-                    if resposta_fraction_indica_login(pagina.url, pagina.text):
-                        cookie_invalido = True
-                        self.log("[ERRO] Sessão/Cookie Fraction expirado! Atualize a credencial.")
-                        return cte_code, "COOKIE_EXPIRADO", {}
-                    if pagina.status_code >= 400:
-                        continue
-
-                    soup_form = BeautifulSoup(pagina.content, "html.parser")
-                    for form in soup_form.find_all("form"):
-                        preparado = _preparar_formulario_fraction(form, pagina.url, cte_code)
-                        if not preparado:
-                            continue
-                        formulario_localizado = True
-                        action, method, campos = preparado
-                        if method == "post":
-                            resp = session.post(
-                                action,
-                                data=campos,
-                                headers={"Referer": pagina.url},
-                                timeout=15,
-                            )
-                        else:
-                            resp = session.get(
-                                action,
-                                params=campos,
-                                headers={"Referer": pagina.url},
-                                timeout=15,
-                            )
-
-                        if resposta_fraction_indica_login(resp.url, resp.text):
-                            cookie_invalido = True
-                            self.log(
-                                "[ERRO] Sessão/Cookie Fraction expirado! Atualize a credencial."
-                            )
-                            return cte_code, "COOKIE_EXPIRADO", {}
-                        if resp.status_code >= 400:
-                            continue
-
-                        soup, txt = extrair_texto_pagina_fraction(resp.content)
-
-                        # Se a resposta foi uma tabela de resultados com link para detalhes do CTE
-                        if "Tomador" not in txt:
-                            for url_det in localizar_urls_detalhe_fraction(
-                                soup, str(resp.url), cte_code
-                            ):
-                                try:
-                                    resp_det = session.get(url_det, timeout=15)
-                                    soup_det, txt_det = extrair_texto_pagina_fraction(
-                                        resp_det.content
-                                    )
-                                    if "Tomador" in txt_det:
-                                        soup = soup_det
-                                        txt = txt_det
-                                        break
-                                except Exception:
-                                    pass
-
-                        tomador_encontrado, dados_fraction = (
-                            extrair_resultado_consulta_fraction(soup, txt, cte_code)
-                        )
-
-                        if tomador_encontrado:
-                            with self.lock:
-                                armazenar_resultado_cache_fraction(
-                                    self.ctes_consultados_cache,
-                                    cte_code,
-                                    tomador_encontrado,
-                                    dados_fraction,
-                                )
-                            return cte_code, tomador_encontrado, dados_fraction
-
-                except requests.RequestException as erro:
-                    self.log(
-                        f"[AVISO FRACTION] Falha ao consultar CTe {cte_code}: {type(erro).__name__}"
-                    )
-
-            # Fallback direto: consulta via endpoint clássico de tracking
-            try:
-                resp_direto = session.post(
-                    "https://jadlog.com.br/FractionWeb/jad/tracking",
-                    data={
-                        "cte": cte_code,
-                        "conhecimento": cte_code,
-                        "remessa": cte_code,
-                    },
-                    headers={"Referer": "https://jadlog.com.br/FractionWeb/jad/"},
-                    timeout=12,
-                )
-                if resp_direto.status_code == 200 and not resposta_fraction_indica_login(
-                    resp_direto.url
-                ):
-                    soup_dir, txt_dir = extrair_texto_pagina_fraction(
-                        resp_direto.content
-                    )
-                    tomador_direto, dados_fraction = extrair_resultado_consulta_fraction(
-                        soup_dir, txt_dir, cte_code, fallback=True
-                    )
-                    if tomador_direto:
-                        with self.lock:
-                            armazenar_resultado_cache_fraction(
-                                self.ctes_consultados_cache,
-                                cte_code,
-                                tomador_direto,
-                                dados_fraction,
-                            )
-                        return cte_code, tomador_direto, dados_fraction
-            except Exception:
-                pass
-
-            if not formulario_localizado:
-                self.log(
-                    f"[AVISO FRACTION] Não foi localizado o formulário de pesquisa (Consulta Geral ou Procurar) "
-                    f"para o CTe {cte_code}; confirme a sessão e cookie Fraction."
-                )
-            return cte_code, None, {}
+            return consultar_fraction_por_cte(
+                cte_code,
+                _thread_local.session,
+                self.ctes_consultados_cache,
+                self.lock,
+                ao_cookie_expirado=marcar_cookie_fraction_expirado,
+                ao_erro_consulta=lambda tipo_erro: self.log(
+                    f"[AVISO FRACTION] Falha ao consultar CTe {cte_code}: {tipo_erro}"
+                ),
+                ao_formulario_ausente=lambda cte: self.log(
+                    "[AVISO FRACTION] Não foi localizado o formulário de pesquisa "
+                    f"(Consulta Geral ou Procurar) para o CTe {cte}; "
+                    "confirme a sessão e cookie Fraction."
+                ),
+            )
 
         def processar_e_validar_cruzamento(pair):
             nonlocal concluidos, encontrados, divergencias, sem_resultado
@@ -3246,67 +2582,37 @@ class ZendeskAppGUI:
 
             txt = dados_frac.get("texto_completo", "")
 
-            # 1. EXTRAÇÃO DE EMITENTE E DESTINATÁRIO DO TEXTO DO FRACTION
             partes_fraction = extrair_partes_fraction(txt, dados_frac)
             dacte_frac = dados_frac.get("dacte", "")
 
-            # 2. PREENCHIMENTO SEM SOBRESCREVER (COLUNAS Q, R, S, T, U, V E DACTE)
-            # Os dados do Fraction são gravados mesmo se a guia for para Quarentena
             with self.lock:
-                st_antes = str(item_ref.get("STATUS CONFERÊNCIA", "OK"))
-                docs_sheet_orig = atualizar_linha_fraction(
+                resultado_conferencia = aplicar_resultado_conferencia_fraction(
                     item_ref,
-                    st_antes,
+                    self.memoria_termos,
                     tomador_fraction,
                     dacte_frac,
                     partes_fraction,
+                    dados_frac,
                 )
 
-                termo_chave = item_ref.get("TERMO")
-                atualizar_memoria_termo_fraction(
-                    self.memoria_termos,
-                    termo_chave,
-                    item_ref,
-                    tomador_fraction,
-                    dacte_frac,
+            if resultado_conferencia.motivos:
+                self.log(
+                    f"[⚠️ DIVERGÊNCIA] CTe {cte_confirmado}: "
+                    f"{resultado_conferencia.status}"
                 )
-
-            # 3. LÓGICA DE VALIDAÇÃO (CRUZAMENTO SEGURO)
-
-            evidencias = preparar_evidencias_conferencia_fraction(
-                dados_frac, item_ref
-            )
-            # 4. ATUALIZAÇÃO DO STATUS DE CONFERÊNCIA
-            motivos, inconclusivos = montar_resultado_conferencia_fraction(
-                evidencias, docs_sheet_orig
-            )
-
-            with self.lock:
-                st_atual = str(item_ref.get("STATUS CONFERÊNCIA", "OK"))
-                novo_status, atualizar_status = determinar_status_conferencia_fraction(
-                    st_atual, motivos, inconclusivos
+                with estatisticas_lock:
+                    divergencias += 1
+            elif resultado_conferencia.inconclusivos:
+                self.log(
+                    f"[~ PARCIAL] CTe {cte_confirmado} -> "
+                    f"Tomador: {item_ref.get('TOMADOR', '')} | sem evidência de: "
+                    f"{', '.join(resultado_conferencia.inconclusivos)}"
                 )
-
-                if motivos:
-                    status_erro = novo_status
-                    item_ref["STATUS CONFERÊNCIA"] = status_erro
-                    self.log(f"[⚠️ DIVERGÊNCIA] CTe {cte_confirmado}: {status_erro}")
-                    with estatisticas_lock:
-                        divergencias += 1
-                elif inconclusivos:
-                    item_ref["STATUS CONFERÊNCIA"] = novo_status
-                    self.log(
-                        f"[~ PARCIAL] CTe {cte_confirmado} -> Tomador: "
-                        f"{item_ref.get('TOMADOR', '')} | sem evidência de: "
-                        f"{', '.join(inconclusivos)}"
-                    )
-                else:
-                    if atualizar_status:
-                        item_ref["STATUS CONFERÊNCIA"] = novo_status
-                    self.log(
-                        f"[✓ VALIDADO] CTe {cte_confirmado} -> "
-                        f"Tomador: {item_ref.get('TOMADOR', '')}"
-                    )
+            else:
+                self.log(
+                    f"[✓ VALIDADO] CTe {cte_confirmado} -> "
+                    f"Tomador: {item_ref.get('TOMADOR', '')}"
+                )
 
             concluidos += 1
             self.atualizar_progresso(concluidos, total_itens)

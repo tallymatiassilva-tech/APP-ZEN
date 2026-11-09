@@ -5,6 +5,7 @@ import os
 import re
 from collections.abc import Mapping, MutableMapping, Sequence
 from pathlib import Path
+from typing import Any
 
 AttachmentFlags = Mapping[str, object]
 MutableAttachmentFlags = MutableMapping[str, object]
@@ -103,3 +104,30 @@ def determinar_diretorio_anexo(
     if is_nota:
         return raiz / "NOTAS"
     return raiz / estado_dir / subpasta
+
+
+def salvar_anexos_processados(
+    pasta_destino: str | Path,
+    anexos: Sequence[Mapping[str, Any]],
+    em_quarentena: bool,
+) -> list[Path]:
+    """Grava anexos classificados na estrutura de pastas correspondente."""
+    caminhos_salvos = []
+    for anexo in anexos:
+        caminho_dir = determinar_diretorio_anexo(
+            pasta_destino,
+            anexo["uf_final"],
+            anexo["subpasta"],
+            anexo["is_dar"],
+            anexo["is_nota"],
+            anexo["is_duplicado"],
+            anexo["is_vencido"],
+            em_quarentena,
+        )
+        caminho_dir.mkdir(parents=True, exist_ok=True)
+        caminho_arquivo = determinar_caminho_arquivo_unico(
+            caminho_dir, anexo["nome_limpo"]
+        )
+        caminho_arquivo.write_bytes(anexo["conteudo"])
+        caminhos_salvos.append(caminho_arquivo)
+    return caminhos_salvos

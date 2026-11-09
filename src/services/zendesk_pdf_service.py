@@ -3,11 +3,18 @@
 from __future__ import annotations
 
 import re
+import threading
 from collections.abc import Callable, Mapping, MutableMapping, Sequence
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from typing import Any, TypeAlias
 
-from src.services.attachment_service import limpar_nome_anexo
+from src.services.attachment_service import (
+    calcular_hash_md5,
+    determinar_quarentena_al,
+    limpar_nome_anexo,
+    propagar_vencimento_dar_ap,
+)
 
 PDFExtraido: TypeAlias = tuple[str, str, bytes]
 ComentarioZendesk: TypeAlias = Mapping[str, Any]
@@ -18,6 +25,24 @@ RegistroZendesk: TypeAlias = tuple[Any, ...]
 class ResultadoProcessamentoPDFTicket:
     tem_dar_pdf: bool
     tem_termo_pdf: bool
+
+
+@dataclass(frozen=True)
+class ResultadoTicketPlanilha:
+    data_ticket: str
+    uf_ticket: str
+    registros: list[RegistroZendesk]
+    status_conf: str
+    mapa_termo_cte: dict[str, list[str]]
+    lista_ctes_ordenada: list[str]
+    nfe_map: dict[str, Any]
+
+
+@dataclass(frozen=True)
+class ResultadoAnexosTicket:
+    anexos: list[Any]
+    em_quarentena: bool
+    motivo_quarentena: str | None
 
 
 def agregar_registros_ticket(
@@ -392,6 +417,110 @@ def processar_pdfs_ticket(
     return ResultadoProcessamentoPDFTicket(tem_dar_pdf, tem_termo_pdf)
 
 
+def processar_ticket_para_planilha(
+    ticket_id: str,
+    ticket: Mapping[str, Any],
+    comentarios: Sequence[ComentarioZendesk],
+    historico_termos: Mapping[str, Any],
+    *,
+    padronizar_data: Callable[[str], str],
+    identificar_uf: Callable[[Mapping[str, Any] | None, str], str],
+    baixar_conteudo: Callable[[str], tuple[bytes | None, str]],
+    extrair_texto: Callable[[bytes], tuple[str, str]],
+    eh_nota_fiscal: Callable[[str, str], bool],
+    eh_dar: Callable[[str], bool],
+    eh_termo: Callable[[str], bool],
+    extrair_remessas_ap: Callable[[str], list[str]],
+    obter_chaves_nfe: Callable[[str, bytes | None], list[str]],
+    formatar_numero: Callable[[str], str],
+    separar_guias_ap: Callable[[str], list[tuple[str | None, str]]],
+    extrair_documento: Callable[..., tuple[Any, Any, Any, Any, Any, Any, Any]],
+    validar_guia_ap: Callable[..., tuple[bool, str]],
+    marcar_ap_processada: Callable[[str], str],
+    resumir_nfe_map: Callable[[dict[str, Any]], str],
+    ao_log: Callable[[str, str], None],
+    identificar_layout: Callable[..., Mapping[str, Any] | None],
+) -> ResultadoTicketPlanilha:
+    """Executa a extração e classificação dos PDFs de um ticket para a planilha."""
+    data_ticket = padronizar_data(str(ticket.get("created_at", ""))[:10])
+    texto_completo = str(ticket.get("description", ""))
+    uf_ticket_tag = identificar_uf(ticket, "")
+
+    pdfs = extrair_pdfs_dos_comentarios(comentarios, baixar_conteudo, extrair_texto)
+    pdfs = ordenar_pdfs_nota_primeiro(pdfs, eh_nota_fiscal)
+    uf_ticket = determinar_uf_ticket(
+        pdfs,
+        uf_ticket_tag,
+        lambda texto: identificar_uf(None, texto),
+    )
+    mapa_termo_cte, lista_ctes_ordenada = mapear_termo_cte_ticket(
+        texto_completo, uf_ticket, extrair_remessas_ap
+    )
+
+    nfe_map: dict[str, Any] = {}
+    registros: list[RegistroZendesk] = []
+    resultado_pdfs = processar_pdfs_ticket(
+        pdfs,
+        uf_ticket,
+        nfe_map,
+        registros,
+        mapa_termo_cte,
+        lista_ctes_ordenada,
+        set(),
+        {},
+        historico_termos,
+        identificar_uf=lambda texto: identificar_uf(None, texto),
+        eh_nota_fiscal=eh_nota_fiscal,
+        eh_dar=eh_dar,
+        eh_termo=eh_termo,
+        obter_chaves_nfe=obter_chaves_nfe,
+        formatar_numero=formatar_numero,
+        separar_guias_ap=separar_guias_ap,
+        extrair_documento=extrair_documento,
+        validar_guia_ap=validar_guia_ap,
+        marcar_ap_processada=marcar_ap_processada,
+        padronizar_data=padronizar_data,
+        resumir_nfe_map=resumir_nfe_map,
+        ao_log=ao_log,
+        identificar_layout=identificar_layout,
+    )
+
+    status_conf = "OK"
+    if uf_ticket == "AL":
+        if resultado_pdfs.tem_dar_pdf and not resultado_pdfs.tem_termo_pdf:
+            status_conf = "INCOMPLETO: Falta Termo"
+        elif resultado_pdfs.tem_termo_pdf and not resultado_pdfs.tem_dar_pdf:
+            status_conf = "INCOMPLETO: Falta Guia (DAR)"
+
+    return ResultadoTicketPlanilha(
+        data_ticket,
+        uf_ticket,
+        registros,
+        status_conf,
+        dict(mapa_termo_cte),
+        lista_ctes_ordenada,
+        nfe_map,
+    )
+
+
+def coletar_anexos_ticket(
+    ticket: Mapping[str, Any],
+    comentarios: Sequence[ComentarioZendesk],
+    ticket_id: str,
+) -> list[Mapping[str, Any]]:
+    """Combina links da descrição e anexos de comentários na ordem atual do fluxo."""
+    anexos: list[Mapping[str, Any]] = []
+    if "description" in ticket:
+        for url in re.findall(
+            r'https?://[^\s<>"]+attachment[^\s<>"]+', ticket["description"]
+        ):
+            anexos.append({"file_name": f"anexo_{ticket_id}.pdf", "content_url": url})
+
+    for comentario in comentarios:
+        anexos.extend(comentario.get("attachments", []))
+    return anexos
+
+
 def extrair_pdfs_dos_comentarios(
     comentarios: Sequence[ComentarioZendesk],
     baixar_conteudo: Callable[[str], tuple[bytes | None, str]],
@@ -532,6 +661,84 @@ def analisar_anexo_baixado(
     }
 
 
+def baixar_e_analisar_anexos_ticket(
+    anexos: Sequence[Mapping[str, Any]],
+    ticket_id: str,
+    uf_ticket: str,
+    hashes_baixados: set[str],
+    *,
+    cancelar: Callable[[], bool],
+    baixar_conteudo: Callable[[str], tuple[bytes | None, str]],
+    analisar_anexo: Callable[[str, str, bytes, str, bool], Any],
+    ao_erro_download: Callable[[str, str, str], None],
+    ao_detectar_duplicado: Callable[[str, str], None],
+    max_workers: int = 8,
+) -> list[Any]:
+    """Baixa e classifica anexos do ticket em paralelo, preservando a detecção de duplicatas."""
+    lock_hashes = threading.Lock()
+
+    def baixar_e_analisar(anexo: Mapping[str, Any]) -> Any | None:
+        if cancelar():
+            return None
+
+        nome = str(anexo["file_name"])
+        nome_limpo = limpar_nome_anexo(nome)
+        conteudo, status_download = baixar_conteudo(anexo["content_url"])
+        if not conteudo:
+            ao_erro_download(nome, ticket_id, status_download)
+            return None
+
+        hash_conteudo = calcular_hash_md5(conteudo)
+        with lock_hashes:
+            duplicado = hash_conteudo in hashes_baixados
+            hashes_baixados.add(hash_conteudo)
+
+        if duplicado:
+            ao_detectar_duplicado(nome_limpo, ticket_id)
+
+        return analisar_anexo(ticket_id, nome, conteudo, uf_ticket, duplicado)
+
+    processados = []
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futuros = [executor.submit(baixar_e_analisar, anexo) for anexo in anexos]
+        for futuro in as_completed(futuros):
+            resultado = futuro.result()
+            if resultado:
+                processados.append(resultado)
+    return processados
+
+
+def processar_anexos_ticket(
+    ticket_id: str,
+    ticket: Mapping[str, Any],
+    comentarios: Sequence[ComentarioZendesk],
+    uf_ticket: str,
+    hashes_baixados: set[str],
+    *,
+    cancelar: Callable[[], bool],
+    baixar_conteudo: Callable[[str], tuple[bytes | None, str]],
+    analisar_anexo: Callable[[str, str, bytes, str, bool], Any],
+    ao_erro_download: Callable[[str, str, str], None],
+    ao_detectar_duplicado: Callable[[str, str], None],
+) -> ResultadoAnexosTicket:
+    """Coleta, baixa, classifica e prepara anexos de um ticket para gravação."""
+    anexos = coletar_anexos_ticket(ticket, comentarios, ticket_id)
+    processados = baixar_e_analisar_anexos_ticket(
+        anexos,
+        ticket_id,
+        uf_ticket,
+        hashes_baixados,
+        cancelar=cancelar,
+        baixar_conteudo=baixar_conteudo,
+        analisar_anexo=analisar_anexo,
+        ao_erro_download=ao_erro_download,
+        ao_detectar_duplicado=ao_detectar_duplicado,
+    )
+    em_quarentena, motivo = determinar_quarentena_al(uf_ticket, processados)
+    propagar_vencimento_dar_ap(uf_ticket, processados)
+    return ResultadoAnexosTicket(processados, em_quarentena, motivo)
+
+
 def determinar_uf_ticket(
     pdfs: Sequence[PDFExtraido],
     uf_ticket_tag: str,
@@ -543,6 +750,137 @@ def determinar_uf_ticket(
         if uf_detectada != "GERAL":
             return uf_detectada
     return uf_ticket_tag if uf_ticket_tag != "GERAL" else "AL"
+
+
+def identificar_uf_ticket(
+    ticket_data: Mapping[str, Any] | None, txt_pdf: str = ""
+) -> str:
+    """Identifica a UF primeiro pelo texto do PDF e depois pelas tags do ticket."""
+    ufs_validas = {
+        "AC",
+        "AL",
+        "AP",
+        "AM",
+        "BA",
+        "CE",
+        "DF",
+        "ES",
+        "GO",
+        "MA",
+        "MT",
+        "MS",
+        "MG",
+        "PA",
+        "PB",
+        "PR",
+        "PE",
+        "PI",
+        "RJ",
+        "RN",
+        "RS",
+        "RO",
+        "RR",
+        "SC",
+        "SP",
+        "SE",
+        "TO",
+    }
+    if txt_pdf:
+        txt_upper = txt_pdf.upper()
+
+        mapa_nomes = [
+            ("GOVERNO DO ESTADO DO AMAPÁ", "AP"),
+            ("GOVERNO DO ESTADO DO ACRE", "AC"),
+            ("GOVERNO DO ESTADO DO PARÁ", "PA"),
+            ("GOVERNO DO ESTADO DO PARA", "PA"),
+            ("ESTADO DO MATO GROSSO DO SUL", "MS"),
+            ("MATO GROSSO DO SUL", "MS"),
+            ("ESPÍRITO SANTO", "ES"),
+            ("ESPIRITO SANTO", "ES"),
+            ("RIO GRANDE DO NORTE", "RN"),
+            ("RIO GRANDE DO SUL", "RS"),
+            ("DISTRITO FEDERAL", "DF"),
+            ("MINAS GERAIS", "MG"),
+            ("SANTA CATARINA", "SC"),
+            ("RIO DE JANEIRO", "RJ"),
+            ("SÃO PAULO", "SP"),
+            ("SAO PAULO", "SP"),
+            ("PERNAMBUCO", "PE"),
+            ("MARANHÃO", "MA"),
+            ("MARANHAO", "MA"),
+            ("TOCANTINS", "TO"),
+            ("AMAZONAS", "AM"),
+            ("RONDÔNIA", "RO"),
+            ("RONDONIA", "RO"),
+            ("RORAIMA", "RR"),
+            ("PARAÍBA", "PB"),
+            ("PARAIBA", "PB"),
+            ("ALAGOAS", "AL"),
+            ("SERGIPE", "SE"),
+            ("PIAUÍ", "PI"),
+            ("PIAUI", "PI"),
+            ("CEARÁ", "CE"),
+            ("CEARA", "CE"),
+            ("GOIÁS", "GO"),
+            ("GOIAS", "GO"),
+            ("BAHIA", "BA"),
+            ("MATO GROSSO", "MT"),
+            ("AMAPÁ", "AP"),
+            ("AMAPA", "AP"),
+        ]
+        for nome_estado, uf_code in mapa_nomes:
+            if re.search(r"\b" + re.escape(nome_estado) + r"\b", txt_upper):
+                return uf_code
+
+        if re.search(r"\bPARÁ\b|\bSEFAZ[/\s-]*PA\b|\bESTADO\s+DO\s+PAR[AÁ]\b", txt_upper):
+            return "PA"
+
+        if re.search(r"\bACRE\b", txt_upper):
+            return "AC"
+
+        match_sefaz = re.search(r"\bSEFAZ[/\s-]*([A-Z]{2})\b", txt_upper)
+        if match_sefaz and match_sefaz.group(1) in ufs_validas:
+            return match_sefaz.group(1)
+
+        match_uf = re.search(r"\bUF\s*[:=]?\s*([A-Z]{2})\b", txt_upper)
+        if match_uf and match_uf.group(1) in ufs_validas:
+            return match_uf.group(1)
+
+    if ticket_data:
+        tags = [str(tag).lower() for tag in ticket_data.get("tags", [])]
+        for uf_candidate in [
+            "ap",
+            "ms",
+            "ac",
+            "al",
+            "am",
+            "ba",
+            "ce",
+            "df",
+            "es",
+            "go",
+            "ma",
+            "mt",
+            "mg",
+            "pa",
+            "pb",
+            "pr",
+            "pe",
+            "pi",
+            "rj",
+            "rn",
+            "rs",
+            "ro",
+            "rr",
+            "sc",
+            "sp",
+            "se",
+            "to",
+        ]:
+            if uf_candidate in tags:
+                return uf_candidate.upper()
+
+    return "GERAL"
 
 
 def mapear_termo_cte_ticket(

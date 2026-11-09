@@ -1,12 +1,13 @@
 """Helpers for extracting search fields from Jadlog Fraction forms."""
 
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from typing import Any
 from urllib.parse import urljoin
 
+import requests
 from bs4 import BeautifulSoup
 
 from src.services.document_classifier import (
@@ -26,6 +27,21 @@ class EvidenciasConferenciaFraction:
     numeros_guia: set[int]
 
 
+@dataclass(frozen=True)
+class PreparacaoItensFraction:
+    itens_pendentes: list[tuple[Mapping[str, Any], list[str]]]
+    guias_ap_chave_incompleta: list[Mapping[str, Any]]
+    itens_sem_cte: list[Mapping[str, Any]]
+
+
+@dataclass(frozen=True)
+class ResultadoAplicacaoFraction:
+    motivos: list[str]
+    inconclusivos: list[str]
+    status: str
+    status_atualizado: bool
+
+
 def extrair_ctes_unicos(valores: list[Any]) -> list[str]:
     ctes_limpos = []
     for valor in valores:
@@ -43,7 +59,7 @@ def extrair_ctes_unicos(valores: list[Any]) -> list[str]:
     return ctes_limpos
 
 
-def extrair_ctes_busca_fraction(item_ref: dict[str, Any]) -> list[str]:
+def extrair_ctes_busca_fraction(item_ref: Mapping[str, Any]) -> list[str]:
     candidatos = []
     cte_raw = (
         str(item_ref.get("CTE / REMESSA") or item_ref.get("CTE") or "")
@@ -66,6 +82,33 @@ def extrair_ctes_busca_fraction(item_ref: dict[str, Any]) -> list[str]:
     return candidatos
 
 
+def preparar_itens_pendentes_fraction(
+    itens: Sequence[Mapping[str, Any]],
+) -> PreparacaoItensFraction:
+    """Separa linhas consultáveis pelo CT-e, casos de chave AP e itens sem CT-e."""
+    pendentes = []
+    guias_ap_chave_incompleta = []
+    itens_sem_cte = []
+
+    for item in itens:
+        uf_item = str(item.get("UF", "")).strip().upper()
+        status_item = str(item.get("STATUS CONFERÊNCIA", "")).strip().upper()
+        if uf_item == "AP" and status_item.startswith("INCOMPLETO: CHAVE"):
+            guias_ap_chave_incompleta.append(item)
+
+        candidatos_cte = extrair_ctes_busca_fraction(item)
+        if candidatos_cte:
+            pendentes.append((item, candidatos_cte))
+        else:
+            itens_sem_cte.append(item)
+
+    return PreparacaoItensFraction(
+        pendentes,
+        guias_ap_chave_incompleta,
+        itens_sem_cte,
+    )
+
+
 def obter_resultado_cache_fraction(
     cache: dict[str, Any], cte_code: str
 ) -> tuple[Any, Any] | None:
@@ -82,6 +125,126 @@ def armazenar_resultado_cache_fraction(
     metadados: dict[str, Any],
 ) -> None:
     cache[cte_code] = (tomador, metadados)
+
+
+def consultar_fraction_por_cte(
+    cte_code: str,
+    session: requests.Session,
+    cache: dict[str, Any],
+    cache_lock: Any,
+    *,
+    ao_cookie_expirado: Callable[[], None],
+    ao_erro_consulta: Callable[[str], None],
+    ao_formulario_ausente: Callable[[str], None],
+) -> tuple[str, Any, dict[str, Any]]:
+    """Consulta um CT-e pelo formulário Fraction e usa tracking como fallback."""
+    with cache_lock:
+        resultado_cache = obter_resultado_cache_fraction(cache, cte_code)
+    if resultado_cache is not None:
+        return cte_code, resultado_cache[0], resultado_cache[1]
+
+    url_pesquisa = "https://jadlog.com.br/FractionWeb/jad/pesquisar"
+    formulario_localizado = False
+
+    for url in [url_pesquisa]:
+        try:
+            pagina = session.get(url, timeout=15)
+            if resposta_fraction_indica_login(pagina.url, pagina.text):
+                ao_cookie_expirado()
+                return cte_code, "COOKIE_EXPIRADO", {}
+            if pagina.status_code >= 400:
+                continue
+
+            soup_form = BeautifulSoup(pagina.content, "html.parser")
+            for form in soup_form.find_all("form"):
+                preparado = preparar_formulario_fraction(form, pagina.url, cte_code)
+                if not preparado:
+                    continue
+
+                formulario_localizado = True
+                action, method, campos = preparado
+                if method == "post":
+                    response = session.post(
+                        action,
+                        data=campos,
+                        headers={"Referer": pagina.url},
+                        timeout=15,
+                    )
+                else:
+                    response = session.get(
+                        action,
+                        params=campos,
+                        headers={"Referer": pagina.url},
+                        timeout=15,
+                    )
+
+                if resposta_fraction_indica_login(response.url, response.text):
+                    ao_cookie_expirado()
+                    return cte_code, "COOKIE_EXPIRADO", {}
+                if response.status_code >= 400:
+                    continue
+
+                soup, texto = extrair_texto_pagina_fraction(response.content)
+                if "Tomador" not in texto:
+                    for url_detalhe in localizar_urls_detalhe_fraction(
+                        soup, str(response.url), cte_code
+                    ):
+                        try:
+                            response_detalhe = session.get(url_detalhe, timeout=15)
+                            soup_detalhe, texto_detalhe = extrair_texto_pagina_fraction(
+                                response_detalhe.content
+                            )
+                            if "Tomador" in texto_detalhe:
+                                soup, texto = soup_detalhe, texto_detalhe
+                                break
+                        except Exception:
+                            continue
+
+                tomador, dados_fraction = extrair_resultado_consulta_fraction(
+                    soup, texto, cte_code
+                )
+                if tomador:
+                    with cache_lock:
+                        armazenar_resultado_cache_fraction(
+                            cache, cte_code, tomador, dados_fraction
+                        )
+                    return cte_code, tomador, dados_fraction
+
+        except requests.RequestException as erro:
+            ao_erro_consulta(type(erro).__name__)
+
+    try:
+        response_tracking = session.post(
+            "https://jadlog.com.br/FractionWeb/jad/tracking",
+            data={
+                "cte": cte_code,
+                "conhecimento": cte_code,
+                "remessa": cte_code,
+            },
+            headers={"Referer": "https://jadlog.com.br/FractionWeb/jad/"},
+            timeout=12,
+        )
+        if response_tracking.status_code == 200 and not resposta_fraction_indica_login(
+            response_tracking.url
+        ):
+            soup_tracking, texto_tracking = extrair_texto_pagina_fraction(
+                response_tracking.content
+            )
+            tomador, dados_fraction = extrair_resultado_consulta_fraction(
+                soup_tracking, texto_tracking, cte_code, fallback=True
+            )
+            if tomador:
+                with cache_lock:
+                    armazenar_resultado_cache_fraction(
+                        cache, cte_code, tomador, dados_fraction
+                    )
+                return cte_code, tomador, dados_fraction
+    except Exception:
+        pass
+
+    if not formulario_localizado:
+        ao_formulario_ausente(cte_code)
+    return cte_code, None, {}
 
 
 def selecionar_resultado_fraction(
@@ -200,6 +363,51 @@ def atualizar_linha_fraction(
     )
     preencher_campos_fraction(item_ref, tomador, dacte, partes)
     return documentos_originais
+
+
+def aplicar_resultado_conferencia_fraction(
+    item_ref: dict[str, Any],
+    memoria_termos: dict[str, dict[str, Any]],
+    tomador: str,
+    dacte: str,
+    partes: dict[str, str],
+    dados_fraction: dict[str, Any],
+) -> ResultadoAplicacaoFraction:
+    """Aplica dados de um resultado Fraction à linha, memória e status de conferência."""
+    status_inicial = str(item_ref.get("STATUS CONFERÊNCIA", "OK"))
+    documentos_originais = atualizar_linha_fraction(
+        item_ref,
+        status_inicial,
+        tomador,
+        dacte,
+        partes,
+    )
+    atualizar_memoria_termo_fraction(
+        memoria_termos,
+        item_ref.get("TERMO"),
+        item_ref,
+        tomador,
+        dacte,
+    )
+
+    evidencias = preparar_evidencias_conferencia_fraction(dados_fraction, item_ref)
+    motivos, inconclusivos = montar_resultado_conferencia_fraction(
+        evidencias, documentos_originais
+    )
+    status_atual = str(item_ref.get("STATUS CONFERÊNCIA", "OK"))
+    novo_status, status_atualizado = determinar_status_conferencia_fraction(
+        status_atual, motivos, inconclusivos
+    )
+
+    if motivos or inconclusivos or status_atualizado:
+        item_ref["STATUS CONFERÊNCIA"] = novo_status
+
+    return ResultadoAplicacaoFraction(
+        motivos=motivos,
+        inconclusivos=inconclusivos,
+        status=novo_status,
+        status_atualizado=status_atualizado,
+    )
 
 
 def comparar_evidencias_fraction(
