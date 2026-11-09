@@ -1,7 +1,7 @@
 from src.services.ufs.ap_validacao import (
     chave_do_texto,
+    doc_do_campo_05,
     documentos_dos_pares,
-    resumo_nfe_map,
     validar_guia_ap,
 )
 
@@ -36,7 +36,35 @@ def test_chave_do_texto_ignora_dacte_sem_rotulo():
     assert chave_do_texto(so_dacte) == ""
 
 
+def test_doc_do_campo_05_para_no_inicio_do_campo_06():
+    texto = (
+        "05 - Inscricao Estadual/CGC/CPF: 868.902.472-72\n"
+        "06 - Data de vencimento: 09/11/2026"
+    )
+    assert doc_do_campo_05(texto) == "86890247272"
+
+
 def test_guia_aprovada_pelo_destinatario():
-    ok, motivo = validar_guia_ap(PARES_OK, TXT, NFE_MAP)
+    texto_guia = (
+        "05 - Inscricao Estadual/CGC/CPF: 868.902.472-72\n"
+        "06 - Data de vencimento: 09/11/2026\n" + TXT
+    )
+    ok, motivo = validar_guia_ap([], texto_guia, NFE_MAP)
     assert ok, motivo
     assert "destinatario" in motivo
+
+
+def test_guia_sem_campo_05_fica_incompleta():
+    ok, motivo = validar_guia_ap([], TXT, NFE_MAP)
+    assert not ok
+    assert motivo.startswith("INCOMPLETO: nenhum CPF/CNPJ")
+
+
+def test_guia_com_remessa_sem_dados_das_partes_informa_limite_da_validacao():
+    texto_guia = (
+        "05 - Inscricao Estadual/CGC/CPF: 868.902.472-72\n"
+        "06 - Data de vencimento: 09/11/2026\n" + TXT
+    )
+    ok, motivo = validar_guia_ap([], texto_guia, {NF_1: "1"})
+    assert ok
+    assert "CPF/CNPJ nao validado" in motivo

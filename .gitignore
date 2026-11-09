@@ -1,10 +1,21 @@
 __pycache__/
-*.pyc
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
 scratch_*.py
 *_backup.py
-
-# arquivos locais
-scratch_*.py
 *.bak*
-__pycache__/
-*.pyc
+
+# Dados locais e logs, que podem conter informacoes de tickets ou clientes.
+*.log
+log_remessa.txt
+memoria_diaria_jadlog.json
+checkpoints/
+**/checkpoints/
+ARQUIVOS/
+**/ARQUIVOS/
+
+# Dumps e arquivos auxiliares locais.
+dump_funcoes.txt
+trecho.txt
+validacao.txt

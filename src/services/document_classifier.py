@@ -7,6 +7,8 @@ import re
 
 import pypdf
 
+from src.utils.text_mono import padronizar_data_ddmmyyyy
+
 
 def e_dar_documento(texto_pdf: str) -> bool:
     u = texto_pdf.upper()
@@ -45,8 +47,11 @@ def e_termo_documento(texto_pdf: str) -> bool:
         for k in [
             "TERMO DE AVERIGUA",
             "AVERIGUACAO",
+            "AVERIGUAÇÃO",
             "TERMO DE APREENSAO",
+            "TERMO DE APREENSÃO",
             "TERMO DE VERIFICACAO FISCAL",
+            "TERMO DE VERIFICAÇÃO FISCAL",
         ]
     )
 
@@ -62,9 +67,23 @@ def e_nota_fiscal(texto_pdf: str, nome_anexo: str) -> bool:
         return True
     if "NOTA FISCAL" in u and "SEFAZ" not in u:
         return True
-    if "download" in nl and "CHAVE DE ACESSO" in u and "PROTOCOLO DE AUTORIZACAO" in u:
+    if (
+        "download" in nl
+        and "CHAVE DE ACESSO" in u
+        and ("PROTOCOLO DE AUTORIZACAO" in u or "PROTOCOLO DE AUTORIZAÇÃO" in u)
+    ):
         return True
     return False
+
+
+def extrair_vencimento_nota(texto_pdf: str) -> str:
+    match = re.search(
+        r"(?:VENCIMENTO|VALIDADE|VALIDO\s+ATE|VÁLIDO\s+ATÉ)"
+        r"[^\d]{0,40}(\d{2}[/-]\d{2}[/-]\d{2,4})",
+        texto_pdf or "",
+        re.IGNORECASE,
+    )
+    return padronizar_data_ddmmyyyy(match.group(1)) if match else "Não informado"
 
 
 def linha_digitavel_para_codigo_barras(linha: str) -> str:
@@ -75,21 +94,33 @@ def linha_digitavel_para_codigo_barras(linha: str) -> str:
         return n[0:3] + n[3:4] + n[32:33] + n[33:47] + n[4:9] + n[10:20] + n[21:31]
     if len(n) == 44:
         return n
-    return n if n else "Sem Codigo"
+    return n if n else "Sem Código"
 
 
 def extrair_codigo_barras_pdf(texto_pdf: str) -> tuple[str, str]:
     if not e_dar_documento(texto_pdf):
-        return "Sem Codigo", "Sem Codigo"
-    m = re.search(
+        return "Sem Código", "Sem Código"
+
+    match_febraban = re.search(
         r"\b(8\d{10}[\s\.-]*\d[\s\.-]*\d{11}[\s\.-]*\d[\s\.-]*\d{11}[\s\.-]*\d[\s\.-]*\d{11}[\s\.-]*\d)\b",
         texto_pdf,
     )
-    if m:
-        bruto = " ".join(m.group(1).split())
-        d = re.sub(r"\D", "", bruto)
-        if len(d) == 48:
-            return bruto, linha_digitavel_para_codigo_barras(d)
+    if match_febraban:
+        bruto = " ".join(match_febraban.group(1).split())
+        digits = re.sub(r"\D", "", bruto)
+        if len(digits) == 48:
+            return bruto, linha_digitavel_para_codigo_barras(digits)
+
+    match_boleto = re.search(
+        r"\b(\d{5}[\.-]?\d{5}\s*\d{5}[\.-]?\d{6}\s*\d{5}[\.-]?\d{6}\s*\d\s*\d{14})\b",
+        texto_pdf,
+    )
+    if match_boleto:
+        bruto = " ".join(match_boleto.group(1).split())
+        digits = re.sub(r"\D", "", bruto)
+        if len(digits) == 47:
+            return bruto, linha_digitavel_para_codigo_barras(digits)
+
     nums = re.sub(r"\D", "", texto_pdf)
     m48 = re.search(r"(8\d{47})", nums)
     if m48:
@@ -97,7 +128,7 @@ def extrair_codigo_barras_pdf(texto_pdf: str) -> tuple[str, str]:
     m44 = re.search(r"(8\d{43})", nums)
     if m44:
         return m44.group(1), m44.group(1)
-    return "Sem Codigo", "Sem Codigo"
+    return "Sem Código", "Sem Código"
 
 
 def extrair_vencimento_e_valor_pdf(texto_pdf: str) -> tuple[str, str]:
@@ -186,6 +217,12 @@ def chave_nfe_valida(chave: str) -> bool:
     if digito_verificador >= 10:
         digito_verificador = 0
     return digito_verificador == int(chave_limpa[-1])
+
+
+def normalizar_documento_fiscal(valor: object) -> str:
+    """Retorna CPF/CNPJ apenas com dígitos se tiver 11 ou 14 caracteres."""
+    digitos = re.sub(r"\D", "", str(valor or ""))
+    return digitos if len(digitos) in (11, 14) else ""
 
 
 def extrair_chaves_nfe_pdf(texto_pdf: str, pdf_bytes: bytes | None = None) -> list[str]:
