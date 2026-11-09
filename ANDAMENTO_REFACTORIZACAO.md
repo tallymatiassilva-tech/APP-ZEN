@@ -1,9 +1,9 @@
 # Andamento da refatoracao
 
-**Projeto:** Aplicativo JadLog/Zendesk  
-**Atualizado em:** 09/11/2026  
-**Status geral:** refatoracao incremental em andamento  
-**Branch publicada:** [`copilot/refactor-services`](https://github.com/tallymatiassilva-tech/APP-ZEN/tree/copilot/refactor-services)  
+**Projeto:** Aplicativo JadLog/Zendesk
+**Atualizado em:** 09/11/2026
+**Status geral:** refatoracao incremental em andamento
+**Branch publicada:** [`copilot/refactor-services`](https://github.com/tallymatiassilva-tech/APP-ZEN/tree/copilot/refactor-services)
 **Ultimo commit publicado:** [`971dca4`](https://github.com/tallymatiassilva-tech/APP-ZEN/commit/971dca4681b76e4253134928dc617d0b0edaeac6)
 
 ## Objetivo
@@ -76,4 +76,3 @@ O commit `971dca4` inclui, entre outros ajustes, a orquestracao de anexos por ti
 ## Fora do escopo de extracao
 
 `src/app_legacy.py` continuara sendo o ponto de coordenacao da interface grafica. Construcoes de telas, widgets, dialogos, eventos da GUI e callbacks de exibicao nao precisam ser removidos do legado so para reduzir o numero de linhas. O criterio e deslocar regras e processamento testaveis, mantendo a interface e o fluxo de uso.
-
