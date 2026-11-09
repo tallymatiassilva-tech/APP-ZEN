@@ -14,6 +14,7 @@ from src.services.attachment_service import (
     determinar_quarentena_al,
     limpar_nome_anexo,
     propagar_vencimento_dar_ap,
+    salvar_anexos_processados,
 )
 
 PDFExtraido: TypeAlias = tuple[str, str, bytes]
@@ -503,6 +504,47 @@ def processar_ticket_para_planilha(
     )
 
 
+def processar_e_agregar_ticket_para_planilha(
+    ticket_id: str,
+    ticket: Mapping[str, Any],
+    comentarios: Sequence[ComentarioZendesk],
+    historico_termos: Mapping[str, Any],
+    termos_map: dict[str, dict[str, Any]],
+    *,
+    opcoes_processamento: Mapping[str, Any],
+    lock_termos: Any,
+    campos_al: Sequence[str],
+    limpar_texto: Callable[[Any], str],
+    formatar_numero: Callable[[str], str],
+    padronizar_data: Callable[[Any], str],
+    marcar_ap_processada: Callable[[str], str],
+) -> None:
+    """Processa um ticket e incorpora os registros ao relatório compartilhado."""
+    resultado = processar_ticket_para_planilha(
+        ticket_id,
+        ticket,
+        comentarios,
+        historico_termos,
+        **opcoes_processamento,
+    )
+    with lock_termos:
+        agregar_registros_ticket(
+            ticket_id,
+            resultado.data_ticket,
+            resultado.registros,
+            termos_map,
+            resultado.mapa_termo_cte,
+            resultado.lista_ctes_ordenada,
+            resultado.nfe_map,
+            resultado.status_conf,
+            campos_al=campos_al,
+            limpar_texto=limpar_texto,
+            formatar_numero=formatar_numero,
+            padronizar_data=padronizar_data,
+            marcar_ap_processada=marcar_ap_processada,
+        )
+
+
 def coletar_anexos_ticket(
     ticket: Mapping[str, Any],
     comentarios: Sequence[ComentarioZendesk],
@@ -737,6 +779,48 @@ def processar_anexos_ticket(
     em_quarentena, motivo = determinar_quarentena_al(uf_ticket, processados)
     propagar_vencimento_dar_ap(uf_ticket, processados)
     return ResultadoAnexosTicket(processados, em_quarentena, motivo)
+
+
+def processar_e_salvar_anexos_ticket(
+    ticket_id: str,
+    pasta_destino: str,
+    hashes_baixados: set[str],
+    *,
+    obter_ticket: Callable[[str], Mapping[str, Any] | None],
+    obter_comentarios: Callable[[str], Sequence[ComentarioZendesk]],
+    identificar_uf: Callable[[Mapping[str, Any]], str],
+    cancelar: Callable[[], bool],
+    baixar_conteudo: Callable[[str], tuple[bytes | None, str]],
+    analisar_anexo: Callable[[str, str, bytes, str, bool], Any],
+    ao_erro_download: Callable[[str, str, str], None],
+    ao_detectar_duplicado: Callable[[str, str], None],
+    ao_entrar_quarentena: Callable[[str, ResultadoAnexosTicket], None],
+) -> tuple[str, ResultadoAnexosTicket] | None:
+    """Obtém, processa e salva os anexos de um ticket Zendesk."""
+    ticket = obter_ticket(ticket_id)
+    if not ticket:
+        return None
+
+    uf_ticket = identificar_uf(ticket)
+    resultado = processar_anexos_ticket(
+        ticket_id,
+        ticket,
+        obter_comentarios(ticket_id),
+        uf_ticket,
+        hashes_baixados,
+        cancelar=cancelar,
+        baixar_conteudo=baixar_conteudo,
+        analisar_anexo=analisar_anexo,
+        ao_erro_download=ao_erro_download,
+        ao_detectar_duplicado=ao_detectar_duplicado,
+    )
+    if resultado.em_quarentena:
+        ao_entrar_quarentena(ticket_id, resultado)
+
+    salvar_anexos_processados(
+        pasta_destino, resultado.anexos, resultado.em_quarentena
+    )
+    return uf_ticket, resultado
 
 
 def determinar_uf_ticket(

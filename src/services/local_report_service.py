@@ -5,11 +5,45 @@ from __future__ import annotations
 import hashlib
 import re
 from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
-from src.services.local_pdf_service import RegistroPDFLocal
+from src.services.local_pdf_service import (
+    RegistroPDFLocal,
+    ResultadoLotePDFLocal,
+    processar_pdfs_locais,
+)
 from src.services.ufs.al import AL_CAMPOS_PLANILHA
+
+
+@dataclass(frozen=True)
+class ResultadoRelatorioPastaLocal:
+    lote_pdf: ResultadoLotePDFLocal
+    termos_map: dict[str, dict[str, Any]]
+
+
+def processar_pasta_local_para_relatorio(
+    pasta_origem: str,
+    memoria_termos: Mapping[str, Any],
+    *,
+    limpar_texto: Callable[[str], str],
+    formatar_numero_relatorio: Callable[[str], str],
+    padronizar_data_relatorio: Callable[[Any], str],
+    **opcoes_extracao: Any,
+) -> ResultadoRelatorioPastaLocal:
+    """Lê PDFs locais e monta os dados agrupados para o relatório final."""
+    lote_pdf = processar_pdfs_locais(pasta_origem, **opcoes_extracao)
+    termos_map = montar_mapa_relatorio_local(
+        lote_pdf.registros,
+        lote_pdf.nfe_map,
+        lote_pdf.doc_ap05_por_chave,
+        memoria_termos,
+        limpar_texto=limpar_texto,
+        formatar_numero=formatar_numero_relatorio,
+        padronizar_data=padronizar_data_relatorio,
+    )
+    return ResultadoRelatorioPastaLocal(lote_pdf, termos_map)
 
 
 def montar_mapa_relatorio_local(

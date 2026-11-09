@@ -6,8 +6,11 @@ from src.app_legacy import (
     padronizar_data_ddmmyyyy,
     separar_valores_monetarios,
 )
+from src.services import report_compilation_service
 from src.services.report_compilation_service import (
+    RelatorioCompilado,
     atualizar_memoria_termos,
+    compilar_relatorio_e_atualizar_dados,
     preparar_dados_relatorio,
 )
 from src.services.ufs.al import AL_CAMPOS_PLANILHA
@@ -114,3 +117,60 @@ def test_compilacao_define_status_incompleto_quando_faltam_dados():
     assert resultado.itens[0]["STATUS CONFERÊNCIA"] == (
         "INCOMPLETO: Sem Código de Barras, Vencimento, Valor"
     )
+
+
+def test_compilar_relatorio_preserva_ordem_de_persistencia_e_locks(monkeypatch):
+    eventos = []
+    lock_ativo = []
+    resultado_esperado = RelatorioCompilado(
+        cabecalho=["A"],
+        itens=[{"TERMO": "123456789"}],
+        linhas=[["123456789"]],
+    )
+
+    class LockVerificavel:
+        def __enter__(self):
+            lock_ativo.append(True)
+
+        def __exit__(self, *_args):
+            lock_ativo.pop()
+
+    def atualizar(*_args, **_kwargs):
+        assert lock_ativo == [True]
+        eventos.append("atualizar")
+
+    def preparar(*_args, **_kwargs):
+        assert lock_ativo == [True]
+        eventos.append("preparar")
+        return resultado_esperado
+
+    monkeypatch.setattr(
+        report_compilation_service, "atualizar_memoria_termos", atualizar
+    )
+    monkeypatch.setattr(
+        report_compilation_service, "preparar_dados_relatorio", preparar
+    )
+    dados = []
+    memoria = {}
+
+    resultado = compilar_relatorio_e_atualizar_dados(
+        {},
+        memoria,
+        dados,
+        "10/11/2026 12:00:00",
+        lock=LockVerificavel(),
+        persistir_memoria=lambda: eventos.append(
+            "persistir" if not lock_ativo else "persistir_com_lock"
+        ),
+        limpar_texto=str,
+        formatar_texto=str,
+        formatar_numero=str,
+        padronizar_data=str,
+        normalizar_valor=str,
+        separar_valores=lambda valor: [str(valor)],
+    )
+
+    assert resultado is resultado_esperado
+    assert eventos == ["atualizar", "persistir", "preparar"]
+    assert dados == resultado_esperado.itens
+    assert lock_ativo == []

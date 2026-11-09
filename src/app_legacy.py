@@ -66,8 +66,7 @@ from src.services.layout_service import (
 from src.services.layout_service import (
     GerenciadorLayouts as _GerenciadorLayouts,
 )
-from src.services.local_pdf_service import processar_pdfs_locais
-from src.services.local_report_service import montar_mapa_relatorio_local
+from src.services.local_report_service import processar_pasta_local_para_relatorio
 from src.services.memory_storage_service import (
     carregar_memoria_diaria as _carregar_memoria_diaria,
 )
@@ -84,8 +83,7 @@ from src.services.pdf_service import (
     mesclar_pdfs as _mesclar_pdfs,
 )
 from src.services.report_compilation_service import (
-    atualizar_memoria_termos,
-    preparar_dados_relatorio,
+    compilar_relatorio_e_atualizar_dados,
 )
 from src.services.report_rows_service import (
     cabecalho_relatorio,
@@ -134,6 +132,8 @@ from src.services.zendesk_pdf_service import (
     mapear_termo_cte_ticket,
     ordenar_pdfs_nota_primeiro,
     processar_anexos_ticket,
+    processar_e_agregar_ticket_para_planilha,
+    processar_e_salvar_anexos_ticket,
     processar_pdfs_ticket,
     processar_ticket_para_planilha,
 )
@@ -2105,18 +2105,15 @@ class ZendeskAppGUI:
                 "PROGRESSO",
                 f"Baixando anexos do ticket {i} de {len(tickets)}: #{tid}...",
             )
-            t_data = self._api_pronto().obter_ticket(tid)
-            if not t_data:
-                self.log(f"[!] Ticket #{tid} não encontrado ou sem acesso.")
-                continue
-
-            uf_ticket_tag = self._identificar_uf(t_data)
-            resultado_anexos = processar_anexos_ticket(
+            resultado_ticket = processar_e_salvar_anexos_ticket(
                 tid,
-                t_data,
-                self._api_pronto().obter_comentarios(tid),
-                uf_ticket_tag,
+                pasta_destino,
                 hashes_baixados,
+                obter_ticket=lambda ticket_id: self._api_pronto().obter_ticket(ticket_id),
+                obter_comentarios=lambda ticket_id: self._api_pronto().obter_comentarios(
+                    ticket_id
+                ),
+                identificar_uf=self._identificar_uf,
                 cancelar=lambda: self.cancelar_operacao,
                 baixar_conteudo=self._api_pronto().baixar_conteudo,
                 analisar_anexo=lambda ticket_id, nome, conteudo, uf, duplicado: (
@@ -2144,17 +2141,16 @@ class ZendeskAppGUI:
                 ao_detectar_duplicado=lambda nome, ticket_id: self.log(
                     f"[!] Arquivo duplicado detectado: '{nome}' (Ticket #{ticket_id})."
                 ),
+                ao_entrar_quarentena=lambda ticket_id, resultado: self.log(
+                    f"[⚠️ INCONSISTÊNCIA] Ticket #{ticket_id}: "
+                    f"{resultado.motivo_quarentena}. Enviando para 'QUARENTENA'."
+                ),
             )
+            if not resultado_ticket:
+                self.log(f"[!] Ticket #{tid} não encontrado ou sem acesso.")
+                continue
 
-            if resultado_anexos.em_quarentena:
-                self.log(
-                    f"[⚠️ INCONSISTÊNCIA] Ticket #{tid}: "
-                    f"{resultado_anexos.motivo_quarentena}. Enviando para 'QUARENTENA'."
-                )
-
-            salvar_anexos_processados(
-                pasta_destino, resultado_anexos.anexos, resultado_anexos.em_quarentena
-            )
+            uf_ticket_tag, resultado_anexos = resultado_ticket
 
             self.log(
                 f"[✓] Ticket #{tid} ({uf_ticket_tag}): "
@@ -2190,46 +2186,38 @@ class ZendeskAppGUI:
                 self.log(f"[!] Ticket #{ticket_id} não retornado pela API.")
                 return None
 
-            resultado_ticket = processar_ticket_para_planilha(
+            processar_e_agregar_ticket_para_planilha(
                 ticket_id,
                 resp_ticket,
                 self._api_pronto().obter_comentarios(ticket_id),
                 self.memoria_termos,
-                padronizar_data=padronizar_data_ddmmyyyy,
-                identificar_uf=self._identificar_uf,
-                baixar_conteudo=self._api_pronto().baixar_conteudo,
-                extrair_texto=extrair_texto_pdf,
-                eh_nota_fiscal=e_nota_fiscal,
-                eh_dar=e_dar_documento,
-                eh_termo=e_termo_documento,
-                extrair_remessas_ap=extrair_remessas_ap,
-                obter_chaves_nfe=extrair_chaves_nfe_pdf,
+                termos_map,
+                opcoes_processamento={
+                    "padronizar_data": padronizar_data_ddmmyyyy,
+                    "identificar_uf": self._identificar_uf,
+                    "baixar_conteudo": self._api_pronto().baixar_conteudo,
+                    "extrair_texto": extrair_texto_pdf,
+                    "eh_nota_fiscal": e_nota_fiscal,
+                    "eh_dar": e_dar_documento,
+                    "eh_termo": e_termo_documento,
+                    "extrair_remessas_ap": extrair_remessas_ap,
+                    "obter_chaves_nfe": extrair_chaves_nfe_pdf,
+                    "formatar_numero": formatar_numero_arquivo,
+                    "separar_guias_ap": separar_guias_ap,
+                    "extrair_documento": extrair_documento,
+                    "validar_guia_ap": validar_guia_ap,
+                    "marcar_ap_processada": _marcar_status_guia_ap_processada,
+                    "resumir_nfe_map": resumo_nfe_map,
+                    "ao_log": log_terminal,
+                    "identificar_layout": self.gerenciador_layouts.identificar_e_extrair,
+                },
+                lock_termos=lock_termos,
+                campos_al=AL_CAMPOS_PLANILHA,
+                limpar_texto=limpar_texto_excel,
                 formatar_numero=formatar_numero_arquivo,
-                separar_guias_ap=separar_guias_ap,
-                extrair_documento=extrair_documento,
-                validar_guia_ap=validar_guia_ap,
+                padronizar_data=padronizar_data_ddmmyyyy,
                 marcar_ap_processada=_marcar_status_guia_ap_processada,
-                resumir_nfe_map=resumo_nfe_map,
-                ao_log=log_terminal,
-                identificar_layout=self.gerenciador_layouts.identificar_e_extrair,
             )
-
-            with lock_termos:
-                agregar_registros_ticket(
-                    ticket_id,
-                    resultado_ticket.data_ticket,
-                    resultado_ticket.registros,
-                    termos_map,
-                    resultado_ticket.mapa_termo_cte,
-                    resultado_ticket.lista_ctes_ordenada,
-                    resultado_ticket.nfe_map,
-                    resultado_ticket.status_conf,
-                    campos_al=AL_CAMPOS_PLANILHA,
-                    limpar_texto=limpar_texto_excel,
-                    formatar_numero=formatar_numero_arquivo,
-                    padronizar_data=padronizar_data_ddmmyyyy,
-                    marcar_ap_processada=_marcar_status_guia_ap_processada,
-                )
 
             return ticket_id
 
@@ -2268,8 +2256,12 @@ class ZendeskAppGUI:
 
         termos_map = {}
         try:
-            lote_pdf = processar_pdfs_locais(
+            resultado_pasta = processar_pasta_local_para_relatorio(
                 pasta_origem,
+                self.memoria_termos,
+                limpar_texto=limpar_texto_excel,
+                formatar_numero_relatorio=formatar_numero_arquivo,
+                padronizar_data_relatorio=padronizar_data_ddmmyyyy,
                 identificar_uf=lambda texto: self._identificar_uf(None, texto),
                 eh_nota_fiscal=e_nota_fiscal,
                 separar_guias_ap=separar_guias_ap,
@@ -2288,20 +2280,13 @@ class ZendeskAppGUI:
                 ao_aviso=self.log,
                 ao_erro=lambda nome, erro: self.log(f"[!] Erro ao abrir arquivo {nome}: {erro}"),
             )
+            lote_pdf = resultado_pasta.lote_pdf
             if lote_pdf.cancelado:
                 return self.resetar_progresso()
             if not lote_pdf.quantidade_arquivos:
                 return self.log("[!] Nenhum arquivo PDF encontrado na pasta ou nas subpastas.")
 
-            termos_map = montar_mapa_relatorio_local(
-                lote_pdf.registros,
-                lote_pdf.nfe_map,
-                lote_pdf.doc_ap05_por_chave,
-                self.memoria_termos,
-                limpar_texto=limpar_texto_excel,
-                formatar_numero=formatar_numero_arquivo,
-                padronizar_data=padronizar_data_ddmmyyyy,
-            )
+            termos_map = resultado_pasta.termos_map
             self._doc_ap05_por_chave = lote_pdf.doc_ap05_por_chave
             self._compilar_e_salvar(termos_map, caminho_csv)
             self.salvar_checkpoint("lote de PDFs da pasta local")
@@ -2344,33 +2329,20 @@ class ZendeskAppGUI:
     def _compilar_e_salvar(self, termos_map, caminho_csv):
         processamento_atual = timestamp_processamento()
 
-        with self.lock:
-            atualizar_memoria_termos(
-                termos_map,
-                self.memoria_termos,
-                processamento_atual,
-                limpar_texto=limpar_texto_excel,
-                formatar_numero=formatar_numero_arquivo,
-                padronizar_data=padronizar_data_ddmmyyyy,
-                normalizar_valor=normalizar_valor_monetario,
-                separar_valores=separar_valores_monetarios,
-            )
-
-        self.salvar_memoria_diaria()
-
-        with self.lock:
-            resultado = preparar_dados_relatorio(
-                termos_map,
-                self.memoria_termos,
-                processamento_atual,
-                limpar_texto=limpar_texto_excel,
-                formatar_texto=formatar_texto_excel,
-                formatar_numero=formatar_numero_arquivo,
-                padronizar_data=padronizar_data_ddmmyyyy,
-                normalizar_valor=normalizar_valor_monetario,
-                separar_valores=separar_valores_monetarios,
-            )
-            self.dados_em_memoria.extend(resultado.itens)
+        resultado = compilar_relatorio_e_atualizar_dados(
+            termos_map,
+            self.memoria_termos,
+            self.dados_em_memoria,
+            processamento_atual,
+            lock=self.lock,
+            persistir_memoria=self.salvar_memoria_diaria,
+            limpar_texto=limpar_texto_excel,
+            formatar_texto=formatar_texto_excel,
+            formatar_numero=formatar_numero_arquivo,
+            padronizar_data=padronizar_data_ddmmyyyy,
+            normalizar_valor=normalizar_valor_monetario,
+            separar_valores=separar_valores_monetarios,
+        )
 
         cabecalho = resultado.cabecalho
         linhas_csv = resultado.linhas

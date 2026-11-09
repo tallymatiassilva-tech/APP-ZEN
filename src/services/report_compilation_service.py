@@ -17,6 +17,52 @@ class RelatorioCompilado:
     linhas: list[list[str]]
 
 
+def compilar_relatorio_e_atualizar_dados(
+    termos_map: Mapping[str, dict[str, Any]],
+    memoria_termos: dict[str, dict[str, Any]],
+    dados_em_memoria: list[dict[str, str]],
+    data_processamento: str,
+    *,
+    lock: Any,
+    persistir_memoria: Callable[[], None],
+    limpar_texto: Callable[[Any], str],
+    formatar_texto: Callable[[Any], str],
+    formatar_numero: Callable[[str], str],
+    padronizar_data: Callable[[Any], str],
+    normalizar_valor: Callable[[Any], str],
+    separar_valores: Callable[[Any], list[str]],
+) -> RelatorioCompilado:
+    """Atualiza a memória e prepara o relatório, preservando a sequência de persistência."""
+    with lock:
+        atualizar_memoria_termos(
+            termos_map,
+            memoria_termos,
+            data_processamento,
+            limpar_texto=limpar_texto,
+            formatar_numero=formatar_numero,
+            padronizar_data=padronizar_data,
+            normalizar_valor=normalizar_valor,
+            separar_valores=separar_valores,
+        )
+
+    persistir_memoria()
+
+    with lock:
+        resultado = preparar_dados_relatorio(
+            termos_map,
+            memoria_termos,
+            data_processamento,
+            limpar_texto=limpar_texto,
+            formatar_texto=formatar_texto,
+            formatar_numero=formatar_numero,
+            padronizar_data=padronizar_data,
+            normalizar_valor=normalizar_valor,
+            separar_valores=separar_valores,
+        )
+        dados_em_memoria.extend(resultado.itens)
+    return resultado
+
+
 def atualizar_memoria_termos(
     termos_map: Mapping[str, dict[str, Any]],
     memoria_termos: dict[str, dict[str, Any]],

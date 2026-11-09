@@ -1,7 +1,9 @@
 import pytest
 
+from src.services import zendesk_pdf_service
 from src.services.ufs.al import AL_CAMPOS_PLANILHA
 from src.services.zendesk_pdf_service import (
+    ResultadoTicketPlanilha,
     agregar_registros_ticket,
     analisar_anexo_baixado,
     baixar_e_analisar_anexos_ticket,
@@ -13,6 +15,8 @@ from src.services.zendesk_pdf_service import (
     mapear_termo_cte_ticket,
     ordenar_pdfs_nota_primeiro,
     processar_anexos_ticket,
+    processar_e_agregar_ticket_para_planilha,
+    processar_e_salvar_anexos_ticket,
     processar_guias_ap_ticket,
     processar_pdfs_ticket,
     processar_ticket_para_planilha,
@@ -371,6 +375,77 @@ def test_processa_anexos_ticket_coleta_classifica_e_define_quarentena():
     assert resultado.motivo_quarentena == "Falta Termo"
 
 
+def test_processa_e_salva_anexos_do_ticket_mantendo_ordem_da_quarentena(monkeypatch):
+    eventos = []
+    ticket = {"tags": ["ap"]}
+    resultado_anexos = zendesk_pdf_service.ResultadoAnexosTicket(
+        anexos=[{"nome_limpo": "guia.pdf"}],
+        em_quarentena=True,
+        motivo_quarentena="Falta Termo",
+    )
+    monkeypatch.setattr(
+        zendesk_pdf_service,
+        "processar_anexos_ticket",
+        lambda *args, **kwargs: eventos.append(("processar", args, kwargs))
+        or resultado_anexos,
+    )
+    monkeypatch.setattr(
+        zendesk_pdf_service,
+        "salvar_anexos_processados",
+        lambda *args: eventos.append(("salvar", args)),
+    )
+    resultado = processar_e_salvar_anexos_ticket(
+        "ticket-123",
+        "destino",
+        set(),
+        obter_ticket=lambda ticket_id: eventos.append(("ticket", ticket_id)) or ticket,
+        obter_comentarios=lambda ticket_id: eventos.append(("comentarios", ticket_id))
+        or [],
+        identificar_uf=lambda dados: eventos.append(("uf", dados)) or "AP",
+        cancelar=lambda: False,
+        baixar_conteudo=lambda _url: (b"pdf", "OK"),
+        analisar_anexo=lambda *_args: None,
+        ao_erro_download=lambda *_args: None,
+        ao_detectar_duplicado=lambda *_args: None,
+        ao_entrar_quarentena=lambda ticket_id, _resultado: eventos.append(
+            ("quarentena", ticket_id)
+        ),
+    )
+
+    assert resultado == ("AP", resultado_anexos)
+    assert [evento[0] for evento in eventos] == [
+        "ticket",
+        "uf",
+        "comentarios",
+        "processar",
+        "quarentena",
+        "salvar",
+    ]
+    assert eventos[-1][1] == ("destino", resultado_anexos.anexos, True)
+
+
+def test_processa_ticket_de_anexos_ausente_sem_buscar_comentarios_ou_salvar():
+    chamadas = []
+
+    resultado = processar_e_salvar_anexos_ticket(
+        "ticket-ausente",
+        "destino",
+        set(),
+        obter_ticket=lambda _ticket_id: None,
+        obter_comentarios=lambda _ticket_id: chamadas.append("comentarios") or [],
+        identificar_uf=lambda _ticket: chamadas.append("uf") or "AL",
+        cancelar=lambda: False,
+        baixar_conteudo=lambda _url: (None, "HTTP 404"),
+        analisar_anexo=lambda *_args: None,
+        ao_erro_download=lambda *_args: None,
+        ao_detectar_duplicado=lambda *_args: None,
+        ao_entrar_quarentena=lambda *_args: None,
+    )
+
+    assert resultado is None
+    assert chamadas == []
+
+
 def test_determina_uf_por_pdf_com_fallback_para_tag_ou_al():
     pdfs = [
         ("geral.pdf", "texto geral", b"1"),
@@ -457,6 +532,82 @@ def test_processa_ticket_para_planilha_e_define_status_al_incompleto():
     assert resultado.registros[0][0] == "123456"
     assert resultado.mapa_termo_cte == {"123456": [CTE_1]}
     assert resultado.lista_ctes_ordenada == [CTE_1]
+
+
+def test_processa_e_agrega_ticket_sob_lock_compartilhado(monkeypatch):
+    chamadas = []
+    lock_ativo = []
+    resultado = ResultadoTicketPlanilha(
+        data_ticket="09/11/2026",
+        uf_ticket="AL",
+        registros=[("termo", [], "orig", "barra", "10/11/2026", "2,00", "AL", "OK")],
+        status_conf="OK",
+        mapa_termo_cte={"termo": [CTE_1]},
+        lista_ctes_ordenada=[CTE_1],
+        nfe_map={"chave": "123"},
+    )
+
+    class LockVerificavel:
+        def __enter__(self):
+            lock_ativo.append(True)
+
+        def __exit__(self, *_args):
+            lock_ativo.pop()
+
+    def processar(*args, **kwargs):
+        chamadas.append(("processar", args, kwargs))
+        return resultado
+
+    def agregar(*args, **kwargs):
+        assert lock_ativo == [True]
+        chamadas.append(("agregar", args, kwargs))
+
+    monkeypatch.setattr(
+        zendesk_pdf_service, "processar_ticket_para_planilha", processar
+    )
+    monkeypatch.setattr(zendesk_pdf_service, "agregar_registros_ticket", agregar)
+    termos_map = {}
+    historico = {"termo": {"UF": ["AL"]}}
+    opcoes = {"ao_log": lambda *_args: None}
+
+    processar_e_agregar_ticket_para_planilha(
+        "ticket-123",
+        {"created_at": "2026-11-09"},
+        [{"attachments": []}],
+        historico,
+        termos_map,
+        opcoes_processamento=opcoes,
+        lock_termos=LockVerificavel(),
+        campos_al=AL_CAMPOS_PLANILHA,
+        limpar_texto=str,
+        formatar_numero=str,
+        padronizar_data=str,
+        marcar_ap_processada=str,
+    )
+
+    assert chamadas[0] == (
+        "processar",
+        (
+            "ticket-123",
+            {"created_at": "2026-11-09"},
+            [{"attachments": []}],
+            historico,
+        ),
+        opcoes,
+    )
+    assert chamadas[1][0] == "agregar"
+    assert chamadas[1][1] == (
+        "ticket-123",
+        "09/11/2026",
+        resultado.registros,
+        termos_map,
+        resultado.mapa_termo_cte,
+        resultado.lista_ctes_ordenada,
+        resultado.nfe_map,
+        "OK",
+    )
+    assert chamadas[1][2]["campos_al"] == AL_CAMPOS_PLANILHA
+    assert lock_ativo == []
 
 
 def test_mapeia_remessas_ap_por_linha_e_lista_unica_ordenada():

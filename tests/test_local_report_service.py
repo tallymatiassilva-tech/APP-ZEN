@@ -1,6 +1,11 @@
 import hashlib
 
-from src.services.local_report_service import montar_mapa_relatorio_local
+from src.services import local_report_service
+from src.services.local_pdf_service import ResultadoLotePDFLocal
+from src.services.local_report_service import (
+    montar_mapa_relatorio_local,
+    processar_pasta_local_para_relatorio,
+)
 from src.services.ufs.al import AL_CAMPOS_PLANILHA
 from src.utils.text_mono import (
     formatar_numero_arquivo,
@@ -10,6 +15,64 @@ from src.utils.text_mono import (
 
 NF_1 = "33260913121476000122550010001447611862291617"
 CTE_1 = "35260904884082000135570020093542021093542025"
+
+
+def test_processa_pasta_e_monta_relatorio_com_resultados_da_extracao(monkeypatch):
+    chamadas = []
+    lote_pdf = ResultadoLotePDFLocal(
+        quantidade_arquivos=1,
+        registros=[],
+        nfe_map={"nf": "valor"},
+        doc_ap05_por_chave={"chave": "doc"},
+        ap_total=0,
+        ap_ok=0,
+        ap_quarentena=0,
+        ap_corrigidas=0,
+    )
+    termos_map = {"termo": {"UF": ["AL"]}}
+
+    def processar(pasta, **opcoes):
+        chamadas.append(("processar", pasta, opcoes))
+        return lote_pdf
+
+    def montar(registros, nfe_map, documentos, memoria, **opcoes):
+        chamadas.append(
+            ("montar", registros, nfe_map, documentos, memoria, opcoes)
+        )
+        return termos_map
+
+    monkeypatch.setattr(local_report_service, "processar_pdfs_locais", processar)
+    monkeypatch.setattr(local_report_service, "montar_mapa_relatorio_local", montar)
+    historico = {"termo": {"UF": ["AL"]}}
+    callbacks = {"cancelado": lambda: False}
+    limpar_texto = str
+    formatar_numero = str
+    padronizar_data = str
+
+    resultado = processar_pasta_local_para_relatorio(
+        "pasta",
+        historico,
+        limpar_texto=limpar_texto,
+        formatar_numero_relatorio=formatar_numero,
+        padronizar_data_relatorio=padronizar_data,
+        **callbacks,
+    )
+
+    assert resultado.lote_pdf is lote_pdf
+    assert resultado.termos_map is termos_map
+    assert chamadas[0] == ("processar", "pasta", callbacks)
+    assert chamadas[1] == (
+        "montar",
+        lote_pdf.registros,
+        lote_pdf.nfe_map,
+        lote_pdf.doc_ap05_por_chave,
+        historico,
+        {
+            "limpar_texto": limpar_texto,
+            "formatar_numero": formatar_numero,
+            "padronizar_data": padronizar_data,
+        },
+    )
 
 
 def _montar(registros, *, nfe_map=None, documentos=None, memoria=None):
