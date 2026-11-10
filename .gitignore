@@ -30,3 +30,8 @@ src/memoria_diaria_jadlog.json
 "rc.app_container import AppContainer; AppContainer(); print('OK')*"
 "sa a usar a chave do documento*"
 
+
+_referencia/
+*.egg-info/
+_ver_id.py
+layouts_custom.json

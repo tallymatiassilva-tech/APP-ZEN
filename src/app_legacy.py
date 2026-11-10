@@ -1,10 +1,9 @@
+import contextlib
 import ctypes
 import json
 import os
-import random
 import re
 import threading
-import time
 import tkinter as tk
 import webbrowser
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -17,41 +16,31 @@ from typing import Any, cast
 
 import customtkinter as ctk
 import requests
-from bs4 import BeautifulSoup
 
 from src.services import pdf_service as _pdf_service
-from src.services.attachment_service import (
-    salvar_anexos_processados,
+from src.services.document_classifier import (
+    chave_nfe_valida as chave_nfe_valida,
 )
 from src.services.document_classifier import (
-    chave_nfe_valida,
     e_dar_documento,
     e_nota_fiscal,
     e_termo_documento,
     extrair_chaves_nfe_pdf,
-    extrair_codigo_barras_pdf,
-    extrair_numero_termo_pdf,
     extrair_vencimento_e_valor_pdf,
     extrair_vencimento_nota,
-    linha_digitavel_para_codigo_barras,
+)
+from src.services.document_classifier import (
+    extrair_codigo_barras_pdf as extrair_codigo_barras_pdf,
+)
+from src.services.document_classifier import (
+    extrair_numero_termo_pdf as extrair_numero_termo_pdf,
+)
+from src.services.document_classifier import (
+    linha_digitavel_para_codigo_barras as linha_digitavel_para_codigo_barras,
 )
 from src.services.extraction_service import extrair_documento
 from src.services.fraction_service import (
-    aplicar_resultado_conferencia_fraction,
-    consultar_ctes_fraction_com_retentativas,
-    consultar_fraction_por_cte,
     coordenar_conciliacao_fraction,
-    extrair_ctes_unicos,
-    extrair_partes_fraction,
-    preparar_itens_pendentes_fraction,
-    selecionar_resultado_fraction,
-)
-from src.services.fraction_service import (
-    preparar_formulario_fraction as _preparar_formulario_fraction,
-)
-from src.services.layout_service import (
-    ARQUIVO_LAYOUTS,
-    LAYOUTS_PADRAO_SISTEMA,
 )
 from src.services.layout_service import (
     GerenciadorLayouts as _GerenciadorLayouts,
@@ -67,7 +56,7 @@ from src.services.memory_storage_service import (
     salvar_memoria_diaria as _salvar_memoria_diaria,
 )
 from src.services.pdf_service import (
-    extrair_texto_por_caixa,
+    extrair_texto_por_caixa as extrair_texto_por_caixa,
 )
 from src.services.pdf_service import (
     mesclar_pdfs as _mesclar_pdfs,
@@ -92,13 +81,15 @@ from src.services.spreadsheet_service import (
 )
 from src.services.ufs.al import (
     AL_CAMPOS_PLANILHA,
-    _extrair_campos_al_pdf,
+)
+from src.services.ufs.al import (
+    _extrair_campos_al_pdf as _extrair_campos_al_pdf,
 )
 from src.services.ufs.ap import (
-    extrair_id_controle_ap,
+    extrair_id_controle_ap as extrair_id_controle_ap,
+)
+from src.services.ufs.ap import (
     extrair_remessas_ap,
-    extrair_valor_total_recolher_ap,
-    preparar_codigos_barras_ap,
     separar_guias_ap,
 )
 from src.services.ufs.ap_validacao import (
@@ -106,26 +97,18 @@ from src.services.ufs.ap_validacao import (
 )
 from src.services.ufs.ap_validacao import (
     resumo_nfe_map,
-    validar_chaves_ap,
     validar_guia_ap,
+)
+from src.services.ufs.ap_validacao import (
+    validar_chaves_ap as validar_chaves_ap,
 )
 from src.services.zendesk_api_service import ZendeskAPI
 from src.services.zendesk_auth_service import limpar_e_formatar_cookie
 from src.services.zendesk_pdf_service import (
-    agregar_registros_ticket,
     analisar_anexo_baixado,
-    baixar_e_analisar_anexos_ticket,
-    coletar_anexos_ticket,
-    determinar_uf_ticket,
-    extrair_pdfs_dos_comentarios,
     identificar_uf_ticket,
-    mapear_termo_cte_ticket,
-    ordenar_pdfs_nota_primeiro,
-    processar_anexos_ticket,
     processar_e_agregar_ticket_para_planilha,
     processar_e_salvar_anexos_ticket,
-    processar_pdfs_ticket,
-    processar_ticket_para_planilha,
 )
 from src.utils.text_mono import (
     documento_esta_vencido,
@@ -140,6 +123,30 @@ from src.utils.text_mono import (
 from src.utils.text_mono import (
     padronizar_data_ddmmyyyy_legado as padronizar_data_ddmmyyyy,
 )
+
+__all__ = [
+    "_extrair_campos_al_pdf",
+    "chave_nfe_valida",
+    "documento_esta_vencido",
+    "e_dar_documento",
+    "e_nota_fiscal",
+    "e_termo_documento",
+    "extrair_chaves_nfe_pdf",
+    "extrair_codigo_barras_pdf",
+    "extrair_id_controle_ap",
+    "extrair_numero_termo_pdf",
+    "extrair_remessas_ap",
+    "extrair_texto_por_caixa",
+    "extrair_vencimento_e_valor_pdf",
+    "extrair_vencimento_nota",
+    "formatar_numero_arquivo",
+    "formatar_texto_excel",
+    "limpar_texto_excel",
+    "linha_digitavel_para_codigo_barras",
+    "padronizar_data_ddmmyyyy",
+    "separar_guias_ap",
+    "validar_chaves_ap",
+]
 
 
 def log_terminal(marcador: str, mensagem: str) -> None:
@@ -170,8 +177,6 @@ def registrar_execucao(nome: str):
 
     return decorador
 
-
-import contextlib
 
 keyring: Any = None
 with contextlib.suppress(ImportError):
@@ -1347,7 +1352,7 @@ class ZendeskAppGUI:
                 cookie_tratado = limpar_e_formatar_cookie(novo)
                 self.cookie_jadlog = cookie_tratado
                 salvar_credencial("jadlog_cookie", cookie_tratado)
-                self.log(f"[✓] Sessão Jadlog salva! Validando conexão com o Fraction...")
+                self.log("[✓] Sessão Jadlog salva! Validando conexão com o Fraction...")
 
                 def _validar_conexao():
                     try:
@@ -1618,9 +1623,7 @@ class ZendeskAppGUI:
         qtd_vencidas = 0
         qtd_quarentena = 0
         valor_total_acumulado = 0.0
-
         hoje = datetime.now().date()
-
         with self.lock:
             dados_copia = list(self.dados_em_memoria)
 
@@ -2074,6 +2077,7 @@ class ZendeskAppGUI:
         self.log(
             f"[Anexos] Iniciando download e organização por Estado de {len(tickets)} ticket(s)..."
         )
+
         hoje = datetime.now().date()
 
         now_str = datetime.now().strftime("%d/%m/%Y %H:%M")
@@ -2100,9 +2104,7 @@ class ZendeskAppGUI:
                 pasta_destino,
                 hashes_baixados,
                 obter_ticket=lambda ticket_id: self._api_pronto().obter_ticket(ticket_id),
-                obter_comentarios=lambda ticket_id: self._api_pronto().obter_comentarios(
-                    ticket_id
-                ),
+                obter_comentarios=lambda ticket_id: self._api_pronto().obter_comentarios(ticket_id),
                 identificar_uf=self._identificar_uf,
                 cancelar=lambda: self.cancelar_operacao,
                 baixar_conteudo=self._api_pronto().baixar_conteudo,
@@ -2161,6 +2163,7 @@ class ZendeskAppGUI:
         self.atualizar_tabela_gui()
 
         termos_map = {}
+        hoje = datetime.now().date()
         now_str = datetime.now().strftime("%d/%m/%Y %H:%M")
         lock_termos = threading.Lock()
 
