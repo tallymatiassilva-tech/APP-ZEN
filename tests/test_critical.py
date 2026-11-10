@@ -94,6 +94,11 @@ def test_valor():
     assert normalizar_valor_monetario("R$ 12,00") == "12,00"
 
 
+def test_diretorio_anexo_usa_uf_para_notas():
+    assert determinar_diretorio_anexo("base", "AL", "NOTA", False, True, False, False, False) == Path("base") / "AL" / "NOTAS"
+    assert determinar_diretorio_anexo("base", "AP", "NOTA", False, True, False, False, False) == Path("base") / "AP" / "NOTAS"
+
+
 def test_extracao_campos_al_legada_usa_servico_com_pdf_sintetico(monkeypatch):
     class SyntheticPage:
         def extract_text(self, visitor_text):
@@ -1156,7 +1161,7 @@ def test_determina_diretorio_anexo_prioriza_regras_ap_e_quarentena():
     ) == Path("saida") / "AL" / "QUARENTENA"
     assert determinar_diretorio_anexo(
         "saida", "AL", "ANEXOS", False, True, False, False, False
-    ) == Path("saida") / "NOTAS"
+    ) == Path("saida") / "AL" / "NOTAS"
 
 
 def test_helpers_de_anexo_hash_e_sanitizacao_preservam_comportamento():

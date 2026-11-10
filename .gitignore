@@ -5,6 +5,7 @@ __pycache__/
 scratch_*.py
 *_backup.py
 *.bak*
+*.manual_bak
 
 # Dados locais e logs, que podem conter informacoes de tickets ou clientes.
 *.log
@@ -19,3 +20,13 @@ ARQUIVOS/
 dump_funcoes.txt
 trecho.txt
 validacao.txt
+
+# Binarios e assets nao-fonte.
+Tesseract-OCR/
+icons8-coordenada-z-48.ico
+src/memoria_diaria_jadlog.json
+
+# Arquivos temporarios/artefatos locais gerados em execucoes anteriores.
+"rc.app_container import AppContainer; AppContainer(); print('OK')*"
+"sa a usar a chave do documento*"
+

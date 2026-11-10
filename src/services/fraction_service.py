@@ -991,3 +991,210 @@ def preparar_formulario_fraction(form: Any, page_url: str, cte_code: str):
         return None
 
     return action, method, campos
+
+
+# ---------------------------------------------------------------------------
+# Orquestração da conciliação Fraction (extraído de app_legacy.py)
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class ResultadoConciliacaoFraction:
+    """Estatísticas ao final de uma rodada de conciliação."""
+
+    total: int
+    encontrados: int
+    divergencias: int
+    sem_resultado: int
+    cookie_expirado: bool
+
+
+def coordenar_conciliacao_fraction(
+    dados_em_memoria: list[Mapping[str, Any]],
+    cookie_limpo: str,
+    ctes_consultados_cache: Mapping[str, Any],
+    cache_lock: Any,
+    *,
+    ao_log: Callable[[str], None],
+    ao_progresso: Callable[[int, int], None],
+    deve_cancelar: Callable[[], bool],
+) -> ResultadoConciliacaoFraction:
+    """Coordena a busca de CT-es no Fraction e aplica os resultados.
+
+    Toda a lógica de paralelismo, retentativas e cruzamento de dados fica aqui.
+    Os callbacks recebidos como parâmetro são usados para comunicação com a UI:
+
+    * ``ao_log``       – recebe mensagens de texto para exibição no painel.
+    * ``ao_progresso`` – (concluídos, total) para atualizar a barra de progresso.
+    * ``deve_cancelar``– retorna ``True`` quando o usuário pediu cancelamento.
+    """
+    import random
+    import threading
+    import time
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    preparacao = preparar_itens_pendentes_fraction(dados_em_memoria)
+
+    for item in preparacao.guias_ap_chave_incompleta:
+        termo = item.get("TERMO", "Desconhecido")
+        ao_log(
+            f"[⚠️ CONFERÊNCIA MANUAL] Guia AP #{termo}: "
+            f"{item.get('STATUS CONFERÊNCIA', 'divergência de chave')}. "
+            "A pesquisa no Fraction continuará."
+        )
+
+    for item in preparacao.itens_sem_cte:
+        termo = item.get("TERMO", "Desconhecido")
+        ao_log(
+            f"[i] Termo #{termo} -> Busca no Fraction ignorada "
+            "(Sem CTe na coluna 'CTE / REMESSA')."
+        )
+
+    itens_pendentes = preparacao.itens_pendentes
+
+    if not itens_pendentes:
+        ao_log("[!] Nenhum CTe válido encontrado na coluna CTE para buscar no Fraction.")
+        return ResultadoConciliacaoFraction(0, 0, 0, 0, False)
+
+    total_itens = len(itens_pendentes)
+    concluidos = 0
+    encontrados = 0
+    divergencias = 0
+    sem_resultado = 0
+    cookie_invalido = False
+    estatisticas_lock = threading.Lock()
+
+    _thread_local = threading.local()
+
+    def marcar_cookie_expirado() -> None:
+        nonlocal cookie_invalido
+        cookie_invalido = True
+        ao_log("[ERRO] Sessão/Cookie Fraction expirado! Atualize a credencial.")
+
+    def consultar_pagina(cte_code: str):
+        if deve_cancelar() or cookie_invalido:
+            return cte_code, None, {}
+
+        if not hasattr(_thread_local, "session"):
+            import requests as _req
+
+            s = _req.Session()
+            s.headers.update(
+                {
+                    "User-Agent": (
+                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                        "AppleWebKit/537.36 (KHTML, like Gecko) "
+                        "Chrome/122.0.0.0 Safari/537.36"
+                    ),
+                    "Content-Type": "application/x-www-form-urlencoded",
+                    "Cookie": cookie_limpo,
+                }
+            )
+            _thread_local.session = s
+
+        return consultar_fraction_por_cte(
+            cte_code,
+            _thread_local.session,
+            ctes_consultados_cache,
+            cache_lock,
+            ao_cookie_expirado=marcar_cookie_expirado,
+            ao_erro_consulta=lambda err: ao_log(
+                f"[AVISO FRACTION] Falha ao consultar CTe {cte_code}: {err}"
+            ),
+            ao_formulario_ausente=lambda cte: ao_log(
+                "[AVISO FRACTION] Não foi localizado o formulário de pesquisa "
+                f"(Consulta Geral ou Procurar) para o CTe {cte}; "
+                "confirme a sessão e cookie Fraction."
+            ),
+        )
+
+    def processar_par(pair: tuple[Mapping[str, Any], list[str]]) -> None:
+        nonlocal concluidos, encontrados, divergencias, sem_resultado
+
+        item_ref, ctes = pair
+        if deve_cancelar() or cookie_invalido:
+            return
+
+        ctes_limpos = extrair_ctes_unicos(ctes)
+        expirou, resultados = consultar_ctes_fraction_com_retentativas(
+            ctes_limpos,
+            consultar_pagina,
+            lambda: time.sleep(random.uniform(0.8, 1.5)),
+            lambda: time.sleep(1.0),
+        )
+        if expirou:
+            return
+
+        resultado = selecionar_resultado_fraction(resultados)
+        if resultado is None:
+            with estatisticas_lock:
+                sem_resultado += 1
+            concluidos += 1
+            ao_progresso(concluidos, total_itens)
+            return
+
+        cte_confirmado, tomador, dados_frac = resultado
+        with estatisticas_lock:
+            encontrados += 1
+
+        txt = dados_frac.get("texto_completo", "")
+        partes = extrair_partes_fraction(txt, dados_frac)
+        dacte = dados_frac.get("dacte", "")
+
+        with cache_lock:
+            resultado_conferencia = aplicar_resultado_conferencia_fraction(
+                item_ref,
+                {},  # memoria_termos é atualizada pela UI via salvar_memoria_diaria
+                tomador,
+                dacte,
+                partes,
+                dados_frac,
+            )
+
+        if resultado_conferencia.motivos:
+            ao_log(f"[⚠️ DIVERGÊNCIA] CTe {cte_confirmado}: {resultado_conferencia.status}")
+            with estatisticas_lock:
+                divergencias += 1
+        elif resultado_conferencia.inconclusivos:
+            ao_log(
+                f"[~ PARCIAL] CTe {cte_confirmado} -> "
+                f"Tomador: {item_ref.get('TOMADOR', '')} | sem evidência de: "
+                f"{', '.join(resultado_conferencia.inconclusivos)}"
+            )
+        else:
+            ao_log(
+                f"[✓ VALIDADO] CTe {cte_confirmado} -> "
+                f"Tomador: {item_ref.get('TOMADOR', '')}"
+            )
+
+        concluidos += 1
+        ao_progresso(concluidos, total_itens)
+
+    ao_log(
+        "[Fraction Pro] 1º Pesquisando CTe -> 2º Lendo Página Fraction "
+        "-> 3º Validando CNPJ, NF e DACTE..."
+    )
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        futuros = [executor.submit(processar_par, p) for p in itens_pendentes]
+        for _ in as_completed(futuros):
+            if cookie_invalido or deve_cancelar():
+                break
+
+    if cookie_invalido:
+        ao_log(
+            "[!] Sessão/Cookie expirado na Jadlog. "
+            "Atualize a credencial na tela principal."
+        )
+
+    ao_log(
+        f"[📊 RESUMO CONCILIAÇÃO] Total: {total_itens} | Encontrados: {encontrados} "
+        f"| Divergências: {divergencias} | Sem resultado: {sem_resultado}"
+    )
+    ao_progresso(100, 100)
+
+    return ResultadoConciliacaoFraction(
+        total=total_itens,
+        encontrados=encontrados,
+        divergencias=divergencias,
+        sem_resultado=sem_resultado,
+        cookie_expirado=cookie_invalido,
+    )

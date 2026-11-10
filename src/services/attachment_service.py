@@ -102,7 +102,7 @@ def determinar_diretorio_anexo(
     if is_dar:
         return raiz / estado_dir / "DAR"
     if is_nota:
-        return raiz / "NOTAS"
+        return raiz / estado_dir / "NOTAS"
     return raiz / estado_dir / subpasta
 
 

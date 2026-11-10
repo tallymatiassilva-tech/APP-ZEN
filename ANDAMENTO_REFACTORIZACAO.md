@@ -1,10 +1,9 @@
 # Andamento da refatoracao
 
 **Projeto:** Aplicativo JadLog/Zendesk
-**Atualizado em:** 09/11/2026
-**Status geral:** refatoracao incremental em andamento
+**Atualizado em:** 10/11/2026
+**Status geral:** refatoracao concluida
 **Branch publicada:** [`copilot/refactor-services`](https://github.com/tallymatiassilva-tech/APP-ZEN/tree/copilot/refactor-services)
-**Ultimo commit publicado:** [`971dca4`](https://github.com/tallymatiassilva-tech/APP-ZEN/commit/971dca4681b76e4253134928dc617d0b0edaeac6)
 
 ## Objetivo
 
@@ -37,6 +36,8 @@ Reduzir gradualmente as responsabilidades de `src/app_legacy.py`, movendo regras
 
 - Extraidas a preparacao de itens pendentes, aplicacao dos resultados na linha e atualizacao da memoria.
 - Extraidas a consulta de CT-e, selecao de resultados, tentativas, cache, parsing de paginas, links de detalhe e fallback de tracking.
+- **Extraida a coordenacao da conciliacao Fraction** para `coordenar_conciliacao_fraction()` em `fraction_service.py`. A funcao recebe callbacks (`ao_log`, `ao_progresso`, `deve_cancelar`) e devolve um `ResultadoConciliacaoFraction` com as estatisticas da rodada.
+- `_acao_conciliar_tomador` em `app_legacy.py` agora e apenas a casca de UI: valida base vazia, chama o servico e atualiza a tabela/memoria.
 - Preservada a coordenacao de interface e o sinal de cookie expirado no app.
 
 ### Funcionalidades removidas a pedido
@@ -46,33 +47,21 @@ Reduzir gradualmente as responsabilidades de `src/app_legacy.py`, movendo regras
 
 ## Validacao
 
-Na arvore preparada para publicacao, a ultima validacao executada foi:
+A ultima validacao executada foi:
 
-- `python -m pytest -q`: **171 testes aprovados**.
-- Ruff direcionado para ordenacao de imports: aprovado.
+- `python -m pytest -q`: **176 testes aprovados** (172 existentes + 4 novos para `coordenar_conciliacao_fraction`).
 - `compileall` nos modulos alterados: aprovado.
 - `git diff --check`: aprovado.
 
 Os testes utilizam dados e respostas simuladas. **Nao foram feitos testes manuais com PDFs reais nem chamadas reais ao Zendesk ou ao Fraction.**
 
-## Publicacao no GitHub
+## O que ainda falta antes do merge para main
 
-As alteracoes foram publicadas na branch [`copilot/refactor-services`](https://github.com/tallymatiassilva-tech/APP-ZEN/tree/copilot/refactor-services), sem alterar `main`.
-
-Commits publicados nesta etapa:
-
-- [`8bc5b81` - extracao dos fluxos restantes de processamento](https://github.com/tallymatiassilva-tech/APP-ZEN/commit/8bc5b813b830eeaa7808f002d095742d0214fdee)
-- [`971dca4` - extracao de fluxos de relatorio](https://github.com/tallymatiassilva-tech/APP-ZEN/commit/971dca4681b76e4253134928dc617d0b0edaeac6)
-
-O commit `971dca4` inclui, entre outros ajustes, a orquestracao de anexos por ticket, o processamento de PDFs locais para relatorio e a compilacao/persistencia dos dados do relatorio.
-
-## O que falta
-
-1. **Concluir a extracao da coordenacao de conciliacao Fraction** que ainda permanece em `src/app_legacy.py`, mantendo no app os callbacks de interface, logs, progresso e cancelamento.
-2. **Revisar a atualizacao do relatorio apos a conciliacao** e o salvamento do relatorio final; mover regras para servicos apenas quando isso reduzir acoplamento sem duplicar logica ja existente.
-3. **Executar testes de regressao e checagens focadas** a cada etapa. Os testes com dados reais e a validacao manual da interface continuam pendentes.
-4. **Revisar a compatibilidade antes de integrar a branch em `main`**. O historico e o conteudo local e remoto divergiram; `main` nao foi modificada nesta publicacao.
+1. **Testes manuais** com PDFs reais e chamadas reais ao Zendesk e ao Fraction para validar o comportamento em producao.
+2. **Revisar compatibilidade** do historico entre a branch e `main` antes de integrar. `main` nao foi modificada nesta publicacao.
 
 ## Fora do escopo de extracao
 
 `src/app_legacy.py` continuara sendo o ponto de coordenacao da interface grafica. Construcoes de telas, widgets, dialogos, eventos da GUI e callbacks de exibicao nao precisam ser removidos do legado so para reduzir o numero de linhas. O criterio e deslocar regras e processamento testaveis, mantendo a interface e o fluxo de uso.
+
+`_atualizar_relatorio_zendesk_apos_conciliacao` ja delega integralmente para servicos (`linhas_relatorio_conciliacao`, `salvar_planilha_multisheets`) — nao e necessario mover.
