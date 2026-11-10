@@ -38,23 +38,12 @@ from src.services.document_classifier import (
 from src.services.extraction_service import extrair_documento
 from src.services.fraction_service import (
     aplicar_resultado_conferencia_fraction,
-    armazenar_resultado_cache_fraction,
-    atualizar_linha_fraction,
-    atualizar_memoria_termo_fraction,
     consultar_ctes_fraction_com_retentativas,
     consultar_fraction_por_cte,
     coordenar_conciliacao_fraction,
-    determinar_status_conferencia_fraction,
     extrair_ctes_unicos,
     extrair_partes_fraction,
-    extrair_resultado_consulta_fraction,
-    extrair_texto_pagina_fraction,
-    localizar_urls_detalhe_fraction,
-    montar_resultado_conferencia_fraction,
-    obter_resultado_cache_fraction,
-    preparar_evidencias_conferencia_fraction,
     preparar_itens_pendentes_fraction,
-    resposta_fraction_indica_login,
     selecionar_resultado_fraction,
 )
 from src.services.fraction_service import (
