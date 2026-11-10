@@ -2078,8 +2078,6 @@ class ZendeskAppGUI:
             f"[Anexos] Iniciando download e organização por Estado de {len(tickets)} ticket(s)..."
         )
 
-        hoje = datetime.now().date()
-
         now_str = datetime.now().strftime("%d/%m/%Y %H:%M")
         for tid in tickets:
             with self.lock:
@@ -2163,7 +2161,6 @@ class ZendeskAppGUI:
         self.atualizar_tabela_gui()
 
         termos_map = {}
-        hoje = datetime.now().date()
         now_str = datetime.now().strftime("%d/%m/%Y %H:%M")
         lock_termos = threading.Lock()
 
