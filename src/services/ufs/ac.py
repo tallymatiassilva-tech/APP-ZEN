@@ -44,16 +44,15 @@ def _extrair_regras_ac(txt_pdf: str, nome_anexo: str, nfe_map: dict):
         if termo != "Não localizado" and doc_guia_ac:
             nfe_map[f"DOC_MS_{termo}"] = doc_guia_ac
 
-    # 3. Extrair Código de Barras (Preservando TODOS os números, tirando apenas espaços/pontos)
-    barras_orig, barras_44 = extrair_codigo_barras_pdf(txt_pdf)
-
+    # 3. Extrair Código de Barras (Preservando TODOS os números, removendo apenas espaços)
+    barras_orig, barras_44 = "Sem Código", "Sem Código"
     if m_barras_ac := re.search(r"(8(?:[\s\.-]*\d){43,50})", txt_pdf):
-        # Remove TUDO o que não for número (limpa os espaços, pontos e traços)
+        # Apenas remove espaços e pontuações, preservando rigorosamente TODOS os números sem cortar nenhum dígito
         apenas_numeros = re.sub(r"\D", "", m_barras_ac[1])
-
-        # Guarda a sequência inteira em ambas as colunas, garantindo que não corta NENHUM número
         barras_orig = apenas_numeros
         barras_44 = apenas_numeros
+    else:
+        barras_orig, barras_44 = extrair_codigo_barras_pdf(txt_pdf)
 
     vencimento = "Não informado"
     m_venc = re.search(

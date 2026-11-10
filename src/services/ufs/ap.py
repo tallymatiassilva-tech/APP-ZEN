@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 
 from src.services.document_classifier import (
     e_dar_documento,
@@ -13,8 +14,152 @@ from src.services.document_classifier import (
 )
 from src.utils.text_mono import (
     formatar_numero_arquivo,
+    normalizar_valor_monetario,
     padronizar_data_ddmmyyyy,
 )
+
+
+def preparar_codigos_barras_ap(codigo_original: str, codigo_barras: str) -> tuple[str, str]:
+    codigo_original_normalizado = " ".join(str(codigo_original or "").strip().split())
+    digitos_originais = re.sub(r"\D", "", codigo_original_normalizado)
+
+    if len(digitos_originais) == 48:
+        if "-" in codigo_original_normalizado or " " in codigo_original_normalizado:
+            codigo_original = codigo_original_normalizado
+        else:
+            codigo_original = (
+                f"{digitos_originais[0:11]}-{digitos_originais[11]} "
+                f"{digitos_originais[12:23]}-{digitos_originais[23]} "
+                f"{digitos_originais[24:35]}-{digitos_originais[35]} "
+                f"{digitos_originais[36:47]}-{digitos_originais[47]}"
+            )
+    elif codigo_original_normalizado:
+        codigo_original = codigo_original_normalizado
+
+    digitos_barras = re.sub(r"\D", "", str(codigo_barras or ""))
+    if len(digitos_barras) == 48 and digitos_barras.startswith("8"):
+        codigo_barras = linha_digitavel_para_codigo_barras(digitos_barras)
+    elif len(digitos_barras) == 44:
+        codigo_barras = digitos_barras
+    elif len(digitos_originais) == 48 and digitos_originais.startswith("8"):
+        codigo_barras = linha_digitavel_para_codigo_barras(digitos_originais)
+    elif len(digitos_originais) == 44:
+        codigo_barras = digitos_originais
+
+    return codigo_original, codigo_barras
+
+
+def extrair_valor_total_recolher_ap(texto_pdf: str) -> str:
+    if not texto_pdf:
+        return "Não informado"
+
+    padroes_valor_ap = [
+        r"(?:14\s*-\s*TOTAL\s+A\s+RECOLHER|TOTAL\s+A\s+RECOLHER)\s*[:=-]?\s*(?:R\$\s*)?(\d{1,3}(?:[.,]\d{3})*[.,]\d{2})",
+        r"(?:R\$\s*)?(\d{1,3}(?:[.,]\d{3})*[.,]\d{2})\s*(?:\r?\n)?\s*14\s*-\s*TOTAL\s+A\s+RECOLHER",
+        r"(?:10\s*-\s*Valor\s+Principal|Valor\s+Principal|Total\s+do\s+DAR)\s*[:=-]?\s*(?:R\$\s*)?(\d{1,3}(?:[.,]\d{3})*[.,]\d{2})",
+    ]
+
+    for padrao in padroes_valor_ap:
+        match = re.search(padrao, texto_pdf, re.IGNORECASE)
+        if match:
+            return normalizar_valor_monetario(match.group(1).strip())
+
+    valores = re.findall(r"\b(\d{1,3}(?:[.,]\d{3})*[.,]\d{2})\b", texto_pdf)
+    if valores:
+        return normalizar_valor_monetario(valores[-1])
+
+    return "Não informado"
+
+
+def extrair_id_controle_ap(texto: str) -> str | None:
+    texto_normalizado = str(texto or "").replace("\r\n", "\n").replace("\r", "\n")
+    match = re.search(
+        r"(?:18\s*-\s*)?N[º°o\.]?\s*Controle[\s\S]{0,50}?\b(\d{8,15})\b",
+        texto_normalizado,
+        re.IGNORECASE,
+    )
+    if match:
+        return match.group(1).strip()
+    match_fallback = re.search(
+        r"\b(?:Controle|Número\s+do\s+DAR|N[º°o\.]*\s*DAR)[\s\S]{0,50}?\b(\d{8,15})\b",
+        texto_normalizado,
+        re.IGNORECASE,
+    )
+    if match_fallback:
+        return match_fallback.group(1).strip()
+    return None
+
+
+def separar_guias_ap(texto_pdf: str) -> list[tuple[str | None, str]]:
+    """Separa guias AP por controle, descartando controles repetidos no mesmo lote."""
+    texto_normalizado = str(texto_pdf or "").replace("\r\n", "\n").replace("\r", "\n")
+    controles_encontrados = re.findall(
+        r"(?:18\s*-\s*)?N[º°o\.]?\s*Controle[\s\S]{0,50}?\b(\d{8,15})\b",
+        texto_normalizado,
+        re.IGNORECASE,
+    )
+    controles_unicos = list(dict.fromkeys(c for c in controles_encontrados if c))
+
+    if len(controles_unicos) <= 1:
+        termo = (
+            controles_unicos[0] if controles_unicos else extrair_id_controle_ap(texto_normalizado)
+        )
+        if not termo or termo == "Não localizado":
+            termo = extrair_numero_termo_pdf(texto_normalizado, "")
+        return [(termo, texto_normalizado)]
+
+    linhas = texto_normalizado.split("\n")
+    marcadores = []
+    controle_atual = None
+    for indice, linha in enumerate(linhas):
+        match = re.search(
+            r"(?:18\s*-\s*)?N[º°o\.]?\s*Controle[\s\S]{0,50}?\b(\d{8,15})\b",
+            linha,
+            re.IGNORECASE,
+        )
+        if match:
+            controle = match.group(1).strip()
+            if controle != controle_atual and controle in controles_unicos:
+                marcadores.append((indice, controle))
+                controle_atual = controle
+
+    if len(marcadores) <= 1:
+        return [(controles_unicos[0] if controles_unicos else None, texto_normalizado)]
+
+    guias = []
+    ids_unicos = set()
+    for indice, (inicio, controle) in enumerate(marcadores):
+        fim = marcadores[indice + 1][0] if indice + 1 < len(marcadores) else len(linhas)
+        bloco = "\n".join(linhas[inicio:fim]).strip()
+        if not bloco or controle in ids_unicos:
+            continue
+        ids_unicos.add(controle)
+        guias.append((controle, bloco))
+
+    return guias or [(controles_unicos[0] if controles_unicos else None, texto_normalizado)]
+
+
+def extrair_remessas_ap(texto: str) -> list[str]:
+    padrao_remessa = re.compile(
+        r"\b(?:REMESSA|CTE|CONHECIMENTO|MINUTA)\s*"
+        r"(?:N[º°O.]?\s*)?[:=-]?\s*(\d{14})(?!\d)",
+        re.IGNORECASE,
+    )
+    remessas = []
+    for match in padrao_remessa.finditer(str(texto or "")):
+        remessa = match.group(1)
+        if remessa not in remessas:
+            remessas.append(remessa)
+
+    texto = str(texto or "")
+    for match in re.finditer(r"(?<!\d)\d{14}(?!\d)", texto):
+        remessa = match.group(0)
+        contexto_anterior = texto[max(0, match.start() - 24) : match.start()]
+        if re.search(r"(?:CNPJ|CPF)\s*[:\-]?\s*$", contexto_anterior, re.IGNORECASE):
+            continue
+        if remessa not in remessas:
+            remessas.append(remessa)
+    return remessas
 
 
 def _extrair_regras_ap(txt_pdf: str, nome_anexo: str, nfe_map: dict):
@@ -137,15 +282,12 @@ def _extrair_regras_ap(txt_pdf: str, nome_anexo: str, nfe_map: dict):
     )
 
 # ===== BLOCO ADITIVO: leitura por origem e validacao =====
-import re as _re_ap
-from dataclasses import dataclass as _dataclass_ap
-
 MODELO_NFE = "55"
 MODELO_CTE = "57"
 
 
 def so_digitos(valor) -> str:
-    return _re_ap.sub(r"\D", "", str(valor or ""))
+    return re.sub(r"\D", "", str(valor or ""))
 
 
 def modelo(chave) -> str:
@@ -153,7 +295,7 @@ def modelo(chave) -> str:
     return d[20:22] if len(d) == 44 else ""
 
 
-@_dataclass_ap(frozen=True)
+@dataclass(frozen=True)
 class CodigoBarras:
     original: str
     digitos48: str
@@ -181,7 +323,7 @@ def ler_codigo_barras(campo26) -> CodigoBarras:
 
 
 def _candidatos_44(texto) -> list:
-    achados = _re_ap.findall(r"\d[\d\s.\-/]{40,80}\d", str(texto or ""))
+    achados = re.findall(r"\d[\d\s.\-/]{40,80}\d", str(texto or ""))
     return [d for d in (so_digitos(b) for b in achados) if len(d) == 44]
 
 

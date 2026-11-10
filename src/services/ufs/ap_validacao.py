@@ -3,6 +3,7 @@
 
 import re
 
+from src.services.document_classifier import chave_nfe_valida
 from src.services.ufs.ap import ler_chave_nfe, so_digitos, validar_guia
 
 _RE_CHAVE = re.compile(r"Chave\s+de\s+Acesso\D{0,20}([\d\s.\-/]{44,70})", re.I)
@@ -13,6 +14,43 @@ _CAMPOS_REMETENTE = (
 _CAMPOS_DESTINATARIO = (
     "destinatario", "cnpj_destinatario", "cpf_destinatario", "dest_cnpj", "cnpj_dest",
 )
+_RE_CAMPO_05 = re.compile(r"\b05\s*[-–—]\s*(.*?)(?=\b06\s*[-–—]|\Z)", re.I | re.S)
+_RE_DOCUMENTO = re.compile(r"(?<!\d)(?:\d[\s./-]*){11,14}(?!\d)")
+
+
+def marcar_status_guia_ap_processada(status: str) -> str:
+    if status == "OK":
+        return "GUIA JÁ PROCESSADA"
+    if "GUIA JÁ PROCESSADA" in status:
+        return status
+    return f"{status} | GUIA JÁ PROCESSADA"
+
+
+def validar_chaves_ap(pares_documento: list, chaves_nfe: set[str] | dict) -> str:
+    """Compara as chaves de NF-e da guia com as chaves fornecidas pela remessa."""
+    chaves_guia = set()
+    for par in pares_documento or []:
+        try:
+            chave = par[0]
+        except Exception:
+            continue
+        if not chave or chave == "Sem Arquivo Válido":
+            continue
+        if not chave_nfe_valida(str(chave)):
+            continue
+        chaves_guia.add(re.sub(r"\D", "", str(chave)))
+    if not chaves_guia:
+        return "INCOMPLETO: chave da guia AP nao localizada"
+
+    chaves_nfe_validas = set()
+    for chave in chaves_nfe or []:
+        if chave_nfe_valida(str(chave)):
+            chaves_nfe_validas.add(re.sub(r"\D", "", str(chave)))
+    if not chaves_nfe_validas:
+        return "INCOMPLETO: remessa sem chaves de NF-e"
+    if chaves_guia.issubset(chaves_nfe_validas):
+        return "DOC OK"
+    return "QUARENTENA: chave da guia diverge da NF-e"
 
 
 def _doc_do_par(par):
@@ -27,6 +65,19 @@ def documentos_dos_pares(pares):
         if len(d) in (11, 14):
             docs.append(d)
     return list(dict.fromkeys(docs))
+
+
+def doc_do_campo_05(txt_guia):
+    """Extrai CPF/CNPJ do campo 05 da guia, sem capturar dígitos de outros campos."""
+    match = _RE_CAMPO_05.search(str(txt_guia or ""))
+    if not match:
+        return ""
+
+    for candidato in _RE_DOCUMENTO.findall(match.group(1)):
+        documento = so_digitos(candidato)
+        if len(documento) in (11, 14):
+            return documento
+    return ""
 
 
 def chaves_dos_pares(pares):
@@ -78,14 +129,23 @@ def dados_da_remessa(nfe_map):
     return rem, dest, chaves
 
 
-def validar_guia_ap(pares, txt_guia, nfe_map):
-    """Retorna (ok, motivo). O motivo sempre comeca por DOC OK ou QUARENTENA.
+def validar_guia_ap(pares, txt_guia, nfe_map, doc_guia=""):
+    """Retorna (ok, motivo) validando chave NF-e e CPF/CNPJ da guia.
 
-    Regra principal: a chave de 44 digitos da guia precisa existir nas chaves
-    da remessa. Regra secundaria: quando o nfe_map trouxer remetente ou
-    destinatario, o CPF/CNPJ da guia tambem precisa conferir.
+    A chave de 44 digitos da guia precisa existir nas chaves da remessa.
+    Quando a remessa inclui remetente ou destinatario, o CPF/CNPJ do campo 05
+    tambem precisa corresponder a um deles.
     """
     rem, dest, chaves_remessa = dados_da_remessa(nfe_map)
+    docs = [
+        doc
+        for doc in (
+            so_digitos(doc_guia),
+            doc_do_campo_05(txt_guia),
+            *documentos_dos_pares(pares),
+        )
+        if len(doc) in (11, 14)
+    ]
 
     chaves_guia = []
     chave_txt = chave_do_texto(txt_guia)
@@ -95,25 +155,31 @@ def validar_guia_ap(pares, txt_guia, nfe_map):
         if c not in chaves_guia:
             chaves_guia.append(c)
 
+    if not docs:
+        return False, "INCOMPLETO: nenhum CPF/CNPJ no campo 05"
     if not chaves_guia:
-        return False, "QUARENTENA: chave NF-e ausente na guia"
+        return False, "INCOMPLETO: chave NF-e nao localizada no campo 24"
 
     if not chaves_remessa:
-        return False, "QUARENTENA: remessa sem chaves de NF-e"
+        return False, "INCOMPLETO: remessa sem chaves de NF-e"
 
     bate = [c for c in chaves_guia if c in chaves_remessa]
     if not bate:
         return False, "QUARENTENA: chave da guia nao pertence a remessa"
 
-    docs = documentos_dos_pares(pares)
-    if docs and (rem or dest):
-        for doc in docs:
-            ok, motivo = validar_guia(doc, bate[0], rem, dest, chaves_remessa)
-            if ok:
-                return True, "DOC OK: chave e documento conferem"
-        return False, "QUARENTENA: documento da guia nao confere com a NF-e"
+    if not rem and not dest:
+        return (
+            True,
+            "DOC OK: chave da guia encontrada na remessa; "
+            "CPF/CNPJ nao validado (remetente/destinatario ausente)",
+        )
 
-    return True, "DOC OK: chave da guia encontrada na remessa"
+    motivo = "QUARENTENA: documento da guia nao confere com a NF-e"
+    for doc in docs:
+        ok, motivo = validar_guia(doc, bate[0], rem, dest, chaves_remessa)
+        if ok:
+            return True, f"DOC OK: {motivo.removeprefix('OK: ')}"
+    return False, motivo
 
 
 def resumo_nfe_map(nfe_map):
