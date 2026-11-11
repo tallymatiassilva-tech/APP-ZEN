@@ -127,6 +127,10 @@ class GerenciadorLayouts:
                         self.historico = layouts_carregados.pop("_historico", [])
             except Exception as erro:  # noqa: BLE001
                 print(f"[Erro] Falha ao carregar layouts: {erro}")
+                layouts_carregados = {}
+            if not isinstance(layouts_carregados, dict):
+                print("[Erro] Arquivo de layouts em formato inválido; usando padrões.")
+                layouts_carregados = {}
 
         houve_alteracao = False
         for nome_layout, config in LAYOUTS_PADRAO_SISTEMA.items():
@@ -191,7 +195,10 @@ class GerenciadorLayouts:
                 if not pat or not alvo_texto:
                     return None
                 try:
-                    return re.search(pat, alvo_texto, re.IGNORECASE)
+                    match = re.search(pat, alvo_texto, re.IGNORECASE)
+                    if match and match.group(1 if match.groups() else 0):
+                        return match
+                    return None
                 except re.error:
                     return None
 

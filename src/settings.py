@@ -7,7 +7,7 @@ from pathlib import Path
 @dataclass(frozen=True)
 class Settings:
     app_name: str = "Automacao Total JadLog"
-    version: str = "1.3"
+    version: str = "1.3.0"
     base_dir: Path = Path(__file__).resolve().parent.parent
     icone_app: str = "icons8-coordenada-z-48.ico"
     arquivo_layouts: str = "layouts_custom.json"

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+import io
 import re
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
@@ -26,8 +27,16 @@ def _carregar_linhas(
 ) -> tuple[list[str], list[Sequence[Any]], int, int]:
     caminho = str(caminho_arquivo)
     if caminho.lower().endswith(".csv"):
-        with open(caminho, mode="r", encoding="utf-8-sig") as arquivo:
-            leitor = list(csv.reader(arquivo, delimiter=";"))
+        conteudo = Path(caminho).read_bytes()
+        for codificacao in ("utf-8-sig", "cp1252"):
+            try:
+                texto = conteudo.decode(codificacao)
+                break
+            except UnicodeDecodeError:
+                continue
+        primeira = texto.splitlines()[0] if texto else ""
+        delimitador = ";" if primeira.count(";") >= primeira.count(",") else ","
+        leitor = list(csv.reader(io.StringIO(texto), delimiter=delimitador))
         if not leitor:
             return [], [], 0, 0
         cabecalho = [str(coluna).strip().upper() for coluna in leitor[0]]
@@ -66,27 +75,12 @@ def _carregar_linhas(
                         linha_alinhada[indice] = linha_aba[indice_origem]
                 linhas.append(tuple(linha_alinhada))
 
-        nomes_identidade = {
-            "TERMO/CONTROLE",
-            "TICKET",
-            "CTE / REMESSA",
-            "NÚMERO ARQUIVO",
-            "CHAVE ARQUIVO (55)",
-            "DACTE (57)",
-        }
-        indices_identidade = [
-            indice for indice, nome in enumerate(cabecalho) if nome in nomes_identidade
-        ]
         linhas_unicas = []
         identidades_vistas = set()
         for linha in linhas:
-            identidade = tuple(
-                limpar_texto(str(linha[indice] or "")).strip().upper()
-                for indice in indices_identidade
-                if indice < len(linha)
-            )
-            identidade_completa = (
-                identidade if any(identidade) else tuple(str(valor or "") for valor in linha)
+            identidade_completa = tuple(
+                limpar_texto(str(valor) if valor is not None else "").strip().upper()
+                for valor in linha
             )
             if identidade_completa not in identidades_vistas:
                 identidades_vistas.add(identidade_completa)
