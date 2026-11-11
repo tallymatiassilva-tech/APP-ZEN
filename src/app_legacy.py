@@ -201,6 +201,19 @@ def salvar_credencial(nome: str, valor: str) -> None:
 # ==========================================
 ICONE_APP = "icons8-coordenada-z-48.ico"
 
+
+def _pasta_dados_app() -> str:
+    """Pasta onde ficam memória e checkpoints.
+
+    No executável, fica ao lado do AppZen.exe (sobrevive às atualizações).
+    Rodando pelo código-fonte, mantém o comportamento antigo (pasta src).
+    """
+    import sys
+
+    if getattr(sys, "frozen", False):
+        return os.path.dirname(sys.executable)
+    return os.path.dirname(os.path.abspath(__file__)) or os.getcwd()
+
 if os.name == "nt":
     try:
         myappid = "jadlog.automacao.total.app.1.3"
@@ -1050,7 +1063,7 @@ class ZendeskAppGUI:
         self.lock = threading.Lock()
         self.dados_em_memoria = []
         self._divergencias_fraction_por_iid: dict[str, list[dict[str, str]]] = {}
-        base_dir = os.path.dirname(os.path.abspath(__file__)) or os.getcwd()
+        base_dir = _pasta_dados_app()
         self.arquivo_memoria = os.path.join(base_dir, "memoria_diaria_jadlog.json")
         self.memoria_termos = {}
         self.tickets_processados = {}
@@ -1152,7 +1165,7 @@ class ZendeskAppGUI:
             )
 
     def salvar_checkpoint(self, motivo: str = "lote") -> None:
-        pasta_checkpoint = Path(__file__).resolve().parent / "checkpoints"
+        pasta_checkpoint = Path(_pasta_dados_app()) / "checkpoints"
         with self.lock:
             _salvar_checkpoint(
                 pasta_checkpoint,

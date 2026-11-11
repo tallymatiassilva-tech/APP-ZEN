@@ -1,0 +1,66 @@
+name: Gerar executável Windows
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar dependências
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[ocr,dev]" pyinstaller
+
+      - name: Conferir versão da tag
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: python
+        run: |
+          import os, re
+          from src.settings import SETTINGS
+          tag = os.environ["GITHUB_REF_NAME"].lstrip("v")
+          if tag != SETTINGS.version:
+              raise SystemExit(f"Tag v{tag} diferente de SETTINGS.version {SETTINGS.version}. Atualize src/settings.py.")
+
+      - name: Rodar testes
+        continue-on-error: true
+        run: python -m pytest
+
+      - name: Gerar executável
+        run: >
+          pyinstaller --noconfirm --clean --windowed --name AppZen
+          --icon icons8-coordenada-z-48.ico
+          --collect-all customtkinter --collect-all pdfplumber
+          --hidden-import keyring.backends.Windows
+          run_app.py
+
+      - name: Copiar arquivos de apoio
+        shell: pwsh
+        run: |
+          Copy-Item icons8-coordenada-z-48.ico dist/AppZen/
+          Copy-Item layouts_custom.json dist/AppZen/
+          Copy-Item -Recurse Tesseract-OCR dist/AppZen/Tesseract-OCR
+          Compress-Archive -Path dist/AppZen -DestinationPath AppZen-windows.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AppZen-windows
+          path: AppZen-windows.zip
+
+      - name: Publicar versão
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: AppZen-windows.zip
+          generate_release_notes: true
