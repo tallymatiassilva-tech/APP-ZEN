@@ -481,7 +481,7 @@ def determinar_status_conferencia_fraction(
         return f"DIVERGÊNCIA CTI ({' | '.join(motivos)})", True
     if inconclusivos:
         return "CONCILIADO PARCIAL", True
-    if status_atual in ("OK", "Aguardando Conciliação", ""):
+    if status_atual in ("OK", "Aguardando Conciliação", "", "CONCILIADO PARCIAL") or status_atual.startswith("DIVERGÊNCIA CTI ("):
         return "VALIDADO NO FRACTION", True
     return status_atual, False
 
@@ -1114,7 +1114,7 @@ def coordenar_conciliacao_fraction(
         if deve_cancelar() or cookie_invalido:
             return
 
-        ctes_limpos = extrair_ctes_unicos(ctes)
+        ctes_limpos = list(dict.fromkeys(ctes))
         expirou, resultados = consultar_ctes_fraction_com_retentativas(
             ctes_limpos,
             consultar_pagina,

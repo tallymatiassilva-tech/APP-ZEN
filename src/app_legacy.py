@@ -2,6 +2,7 @@ import ctypes
 import json
 import os
 import random
+import queue
 import re
 import threading
 import time
@@ -349,82 +350,92 @@ class JanelaConfiguracoes(ctk.CTkToplevel):
         top_frame = ctk.CTkFrame(self.tab_layouts, fg_color="#E2E8F0")
         top_frame.pack(fill="x", padx=10, pady=8)
 
+        actions_frame = ctk.CTkFrame(top_frame, fg_color="transparent")
+        actions_frame.pack(fill="x")
+        tools_frame = ctk.CTkFrame(top_frame, fg_color="transparent")
+        tools_frame.pack(fill="x")
+
         ctk.CTkLabel(
-            top_frame,
-            text="Carregar Arquivos para Cruzar Layout:",
+            actions_frame,
+            text="Carregar arquivos:",
             font=("Segoe UI", 11, "bold"),
-        ).pack(side="left", padx=(10, 5), pady=8)
+        ).grid(row=0, column=0, padx=(10, 5), pady=8, sticky="w")
 
         ctk.CTkButton(
-            top_frame,
+            actions_frame,
             text="📂 Carregar DAR",
             fg_color="#1976D2",
             height=28,
             command=lambda: self.carregar_pdf_exemplo(1),
-        ).pack(side="left", padx=4, pady=8)
+        ).grid(row=0, column=1, padx=4, pady=8, sticky="ew")
         ctk.CTkButton(
-            top_frame,
+            actions_frame,
             text="📂 Carregar Termo/Nota",
             fg_color="#0284C7",
             height=28,
             command=lambda: self.carregar_pdf_exemplo(2),
-        ).pack(side="left", padx=4, pady=8)
+        ).grid(row=0, column=2, padx=4, pady=8, sticky="ew")
         ctk.CTkButton(
-            top_frame,
+            actions_frame,
             text="✨ Sugerir Palavras-chave",
             fg_color="#475569",
             height=28,
             command=self.sugerir_palavras_chave,
-        ).pack(side="left", padx=4, pady=8)
+        ).grid(row=0, column=3, padx=4, pady=8, sticky="ew")
 
         ctk.CTkButton(
-            top_frame,
+            tools_frame,
             text="📤 Exportar layouts",
             fg_color="#334155",
             width=125,
             height=28,
             command=self.exportar_json,
-        ).pack(side="right", padx=10, pady=8)
+        ).grid(row=0, column=4, padx=5, pady=8, sticky="ew")
         ctk.CTkButton(
-            top_frame,
+            tools_frame,
             text="📥 Importar layouts",
             fg_color="#334155",
             width=125,
             height=28,
             command=self.importar_json,
-        ).pack(side="right", padx=5, pady=8)
+        ).grid(row=0, column=3, padx=5, pady=8, sticky="ew")
 
         self.ent_busca_layout = ctk.CTkEntry(
-            top_frame, placeholder_text="Filtrar layout ou UF", width=180, height=28
+            tools_frame, placeholder_text="Filtrar layout ou UF", width=180, height=28
         )
-        self.ent_busca_layout.pack(side="right", padx=8, pady=8)
+        self.ent_busca_layout.grid(row=0, column=0, padx=8, pady=8, sticky="ew")
         self.ent_busca_layout.bind("<KeyRelease>", lambda event: self.atualizar_tabela_layouts())
         ctk.CTkButton(
-            top_frame,
+            tools_frame,
             text="↺ Restaurar padrão",
             fg_color="#64748B",
             width=125,
             height=28,
             command=self.restaurar_layout_padrao,
-        ).pack(side="right", padx=4, pady=8)
+        ).grid(row=0, column=1, padx=4, pady=8, sticky="ew")
         ctk.CTkButton(
-            top_frame,
+            tools_frame,
             text="🧾 Ver histórico",
             fg_color="#475569",
             width=110,
             height=28,
             command=self.mostrar_historico_layouts,
-        ).pack(side="right", padx=4, pady=8)
+        ).grid(row=0, column=2, padx=4, pady=8, sticky="ew")
+
+        actions_frame.columnconfigure((1, 2, 3), weight=1)
+        tools_frame.columnconfigure(0, weight=1)
 
         center_frame = ctk.CTkFrame(self.tab_layouts, fg_color="transparent")
         center_frame.pack(fill="both", expand=True, padx=5, pady=5)
 
         left_box = ctk.CTkFrame(center_frame, fg_color="#FFFFFF", width=420)
-        left_box.pack(side="left", fill="both", expand=True, padx=(0, 4))
+        center_frame.columnconfigure((0, 1, 2), weight=1, uniform="layout_panels")
+        center_frame.rowconfigure(0, weight=1)
+        left_box.grid(row=0, column=0, sticky="nsew", padx=(0, 4))
 
         lbl_pdfs = ctk.CTkLabel(
             left_box,
-            text="Inspeção Visual Lado a Lado (Texto Extraído):",
+            text="Inspeção dos PDFs (texto extraído):",
             font=("Segoe UI", 11, "bold"),
             text_color="#0F172A",
         )
@@ -462,7 +473,7 @@ class JanelaConfiguracoes(ctk.CTkToplevel):
         self.txt_preview2.pack(fill="both", expand=True, padx=4, pady=4)
 
         mid_box = ctk.CTkScrollableFrame(center_frame, fg_color="#FFFFFF", width=380)
-        mid_box.pack(side="left", fill="both", expand=True, padx=4)
+        mid_box.grid(row=0, column=1, sticky="nsew", padx=4)
 
         def add_field(label_text, placeholder="", default_val=""):
             ctk.CTkLabel(
@@ -554,11 +565,11 @@ class JanelaConfiguracoes(ctk.CTkToplevel):
         ).pack(fill="x", pady=3)
 
         right_box = ctk.CTkFrame(center_frame, fg_color="#FFFFFF", width=340)
-        right_box.pack(side="right", fill="both", expand=True, padx=(4, 0))
+        right_box.grid(row=0, column=2, sticky="nsew", padx=(4, 0))
 
         ctk.CTkLabel(
             right_box,
-            text="📊 Resultado Cruzado (Simulação Excel):",
+            text="📊 Resultado cruzado:",
             font=("Segoe UI", 11, "bold"),
             text_color="#1976D2",
         ).pack(anchor="w", padx=10, pady=5)
@@ -568,7 +579,7 @@ class JanelaConfiguracoes(ctk.CTkToplevel):
             font=("Consolas", 9),
             fg_color="#F8FAFC",
             text_color="#0F172A",
-            height=250,
+            height=150,
         )
         self.txt_resultado_lado.pack(fill="x", padx=8, pady=5)
         self.txt_resultado_lado.insert("0.0", "Aguardando carregamento e teste de cruzamento...")
@@ -582,14 +593,14 @@ class JanelaConfiguracoes(ctk.CTkToplevel):
         tabla_frame.pack(fill="both", expand=True, padx=8, pady=5)
 
         self.tree_layouts = ttk.Treeview(
-            tabla_frame, columns=["nome", "uf", "status"], show="headings", height=8
+            tabla_frame, columns=["nome", "uf", "status"], show="headings", height=5
         )
         self.tree_layouts.heading("nome", text="NOME LAYOUT")
         self.tree_layouts.heading("uf", text="UF")
         self.tree_layouts.heading("status", text="STATUS")
-        self.tree_layouts.column("nome", width=180, anchor="w")
-        self.tree_layouts.column("uf", width=50, anchor="center")
-        self.tree_layouts.column("status", width=100, anchor="center")
+        self.tree_layouts.column("nome", width=145, minwidth=80, anchor="w")
+        self.tree_layouts.column("uf", width=40, minwidth=30, anchor="center")
+        self.tree_layouts.column("status", width=65, minwidth=45, anchor="center")
         self.tree_layouts.pack(side="left", fill="both", expand=True)
 
         sc_tree = ttk.Scrollbar(tabla_frame, orient="vertical", command=self.tree_layouts.yview)
@@ -940,6 +951,13 @@ class BotaoArredondado3D(tk.Canvas):
         self.bind("<ButtonRelease-1>", self.on_release)
         self.bind("<Enter>", self.on_enter)
         self.bind("<Leave>", self.on_leave)
+        self.configure(takefocus=1)
+        self.bind("<KeyPress-space>", self.on_press)
+        self.bind("<KeyRelease-space>", self.on_release)
+        self.bind("<KeyPress-Return>", self.on_press)
+        self.bind("<KeyRelease-Return>", self.on_release)
+        self.bind("<FocusOut>", self.on_leave)
+        self.bind("<FocusIn>", lambda event: self.configure(highlightthickness=2, highlightbackground=self.cor_base))
 
     def _draw_capsule(self, x, y, w, h, color):
         r = h / 2
@@ -951,6 +969,11 @@ class BotaoArredondado3D(tk.Canvas):
         return [o1, o2, rct]
 
     def config_state(self, state, text=None):
+        if self.pressed:
+            for item in self.topo_ids:
+                self.move(item, 0, -self.depth)
+            self.move(self.texto_id, 0, -self.depth)
+            self.pressed = False
         if state == tk.DISABLED:
             self.enabled = False
             for item in self.topo_ids:
@@ -973,7 +996,7 @@ class BotaoArredondado3D(tk.Canvas):
                 self.itemconfig(item, fill=self.cor_hover, outline=self.cor_hover)
 
     def on_leave(self, event):
-        self.config(cursor="")
+        self.config(cursor="", highlightthickness=0)
         if self.enabled:
             for item in self.topo_ids:
                 self.itemconfig(item, fill=self.cor_base, outline=self.cor_base)
@@ -984,7 +1007,7 @@ class BotaoArredondado3D(tk.Canvas):
             self.pressed = False
 
     def on_press(self, event):
-        if self.enabled:
+        if self.enabled and not self.pressed:
             for item in self.topo_ids:
                 self.move(item, 0, self.depth)
             self.move(self.texto_id, 0, self.depth)
@@ -1240,6 +1263,8 @@ class ZendeskAppGUI:
         self.tela_login.mainloop()
 
     def validar_login(self):
+        if not self.btn_login.enabled:
+            return
         subdomain = self.entry_subdomain.get().strip()
         cookie = self.entry_cookie.get().strip()
         self.cookie_jadlog = self.entry_cookie_jadlog.get().strip()
@@ -1251,22 +1276,36 @@ class ZendeskAppGUI:
             return
 
         self.btn_login.config_state(tk.DISABLED, text="VALIDANDO...")
-        self.tela_login.update()
+        resultados = queue.Queue()
+        cookie_jadlog = self.cookie_jadlog
 
-        api_temp = ZendeskAPI(subdomain, cookie)
-        sucesso, msg = api_temp.validar_autenticacao()
+        def autenticar():
+            try:
+                api_temp = ZendeskAPI(subdomain, cookie)
+                sucesso, msg = api_temp.validar_autenticacao()
+                resultados.put((api_temp, sucesso, msg))
+            except Exception as erro:
+                resultados.put((None, False, str(erro)))
 
-        if sucesso:
-            salvar_credencial("subdomain", subdomain)
-            salvar_credencial("zendesk_cookie", cookie)
-            salvar_credencial("jadlog_cookie", self.cookie_jadlog)
+        def verificar_resultado():
+            try:
+                api_temp, sucesso, msg = resultados.get_nowait()
+            except queue.Empty:
+                self.tela_login.after(50, verificar_resultado)
+                return
+            if sucesso:
+                salvar_credencial("subdomain", subdomain)
+                salvar_credencial("zendesk_cookie", cookie)
+                salvar_credencial("jadlog_cookie", cookie_jadlog)
+                self.api = api_temp
+                self.tela_login.withdraw()
+                self.construir_painel_principal(msg)
+            else:
+                self.btn_login.config_state(tk.NORMAL, text="ACESSAR SISTEMA")
+                messagebox.showerror("Acesso Negado", f"Falha na autenticação:\n{msg}")
 
-            self.api = api_temp
-            self.tela_login.withdraw()
-            self.construir_painel_principal(msg)
-        else:
-            messagebox.showerror("Acesso Negado", f"Falha na autenticação:\n{msg}")
-            self.btn_login.config_state(tk.NORMAL, text="ACESSAR SISTEMA")
+        threading.Thread(target=autenticar, daemon=True).start()
+        self.tela_login.after(50, verificar_resultado)
 
     def construir_painel_principal(self, nome_agente):
         self.janela = ctk.CTk()
